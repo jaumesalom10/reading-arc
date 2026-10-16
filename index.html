@@ -1,0 +1,1227 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Reading Arc</title>
+<meta name="theme-color" content="#090d0c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Reading Arc">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<style>
+html{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0}
+[hidden]{display:none!important}
+img{max-width:100%}
+/* Layout: sidebar app shell (desktop) → bottom tab bar (phone); dark-only, Jaume's Reading Arc look */
+:root{
+  --bg:#090d0c; --surface:#111716; --raised:#171e1b; --border:#26312c; --line:#1c2521;
+  --text:#eff3eb; --muted:#99a69e; --faint:#65726a;
+  --mint:#a9f4c0; --glow:#2ee6a6; --ink:#06170f; --mint-soft:rgba(169,244,192,.10);
+  --warn:#f2c26b; --danger:#f19a8f;
+  --font-sans:Arial,Helvetica,sans-serif;
+  --font-mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --r:14px; --r-sm:10px;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{background:var(--bg);color:var(--text)}
+body{font-family:var(--font-sans);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--mint);outline-offset:2px}
+a{color:var(--mint)}
+
+.app{display:grid;grid-template-columns:232px minmax(0,1fr);min-height:100vh}
+/* Sidebar */
+.side{position:sticky;top:0;height:100vh;border-right:1px solid var(--line);display:flex;flex-direction:column;padding:22px 14px;gap:22px;background:var(--bg)}
+.brand{display:flex;align-items:center;gap:10px;padding:0 8px;text-decoration:none;color:var(--text)}
+.brand-mark{width:34px;height:34px;border-radius:9px;border:1px solid var(--border);display:grid;place-items:center;background:var(--surface);color:var(--mint)}
+.brand-name{font-weight:700;letter-spacing:.14em;font-size:12px;line-height:1.2}
+.brand-name b{color:var(--mint)}
+.nav-label{font-family:var(--font-mono);font-size:10px;letter-spacing:.2em;color:var(--faint);padding:0 10px;text-transform:uppercase}
+.nav{display:flex;flex-direction:column;gap:2px}
+.nav button{display:flex;align-items:center;gap:11px;padding:10px 10px;border-radius:10px;border:1px solid transparent;background:none;color:var(--muted);text-align:left;font-size:14px}
+.nav button:hover{color:var(--text);background:var(--surface)}
+.nav button[aria-current="page"]{color:var(--mint);background:var(--surface);border-color:var(--border)}
+.nav .count{margin-left:auto;font-family:var(--font-mono);font-size:11px;padding:1px 7px;border-radius:6px;background:var(--raised);color:var(--muted)}
+.side-quote{margin-top:auto;border-top:1px solid var(--line);padding:16px 10px 0}
+.side-quote p{margin:6px 0 0;font-size:15px;line-height:1.35}
+.side-foot{display:flex;flex-direction:column;gap:12px}
+.me{display:flex;align-items:center;gap:10px;padding:10px;border-radius:10px;background:var(--surface);border:1px solid var(--line)}
+.avatar{width:30px;height:30px;border-radius:50%;background:var(--raised);display:grid;place-items:center;font-size:12px;color:var(--mint);border:1px solid var(--border)}
+.me small{display:block;color:var(--muted);font-size:11px}
+
+/* Main */
+.main{min-width:0}
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;display:flex;align-items:center;justify-content:space-between;gap:12px;padding-block:16px;padding-left:max(28px,env(safe-area-inset-left,0px));padding-right:max(28px,env(safe-area-inset-right,0px));border-bottom:1px solid var(--line);background:rgba(9,13,12,.88);backdrop-filter:blur(10px)}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+.crumb{font-family:var(--font-mono);font-size:11px;letter-spacing:.18em;color:var(--muted);text-transform:uppercase}
+.crumb span{color:var(--faint);margin:0 10px}
+.top-actions{display:flex;align-items:center;gap:10px}
+.sync{font-family:var(--font-mono);font-size:11px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.sync i{width:7px;height:7px;border-radius:50%;background:var(--glow);box-shadow:0 0 8px var(--glow)}
+.sync.off i{background:var(--faint);box-shadow:none}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--text);padding:9px 14px;font-size:14px;white-space:nowrap}
+.btn:hover{border-color:#36443d}
+.btn.primary{background:var(--mint);color:var(--ink);border-color:var(--mint);font-weight:700}
+.btn.primary:hover{box-shadow:0 0 0 4px rgba(46,230,166,.15)}
+.btn.ghost{background:none;border-color:transparent;color:var(--mint);padding-inline:4px}
+.btn.danger{color:var(--danger);border-color:rgba(241,154,143,.35);background:none}
+.btn.sm{padding:6px 10px;font-size:13px}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.icon{width:16px;height:16px;flex:none}
+
+.page{padding-block:32px 72px;padding-left:max(28px,env(safe-area-inset-left,0px));padding-right:max(28px,env(safe-area-inset-right,0px));max-width:1180px;display:flex;flex-direction:column;gap:22px}
+.eyebrow{font-family:var(--font-mono);font-size:11px;letter-spacing:.22em;color:var(--muted);text-transform:uppercase;margin:0}
+.hero h1{font-size:clamp(34px,5vw,52px);line-height:1.02;letter-spacing:-.035em;margin:10px 0 10px;text-wrap:balance}
+.hero h1 em{font-style:normal;color:var(--mint)}
+.hero p{margin:0;color:var(--muted);max-width:60ch}
+.hero-row{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap}
+.hero-aside{font-family:var(--font-mono);font-size:10px;letter-spacing:.18em;color:var(--faint);text-align:right;text-transform:uppercase;line-height:1.7}
+
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:20px;min-width:0}
+.card-h{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:16px}
+.dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--glow);margin-right:8px;vertical-align:middle;box-shadow:0 0 8px var(--glow)}
+
+.tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border:1px solid var(--line);border-radius:var(--r);background:var(--surface);overflow:hidden}
+.tile{padding:16px 18px;border-right:1px solid var(--line);min-width:0}
+.tile:last-child{border-right:0}
+.tile .lbl{font-family:var(--font-mono);font-size:10px;letter-spacing:.16em;color:var(--muted);text-transform:uppercase;display:flex;align-items:center;gap:7px}
+.tile .val{font-size:30px;font-weight:700;letter-spacing:-.02em;margin-top:6px;font-variant-numeric:tabular-nums}
+.tile .val small{font-size:13px;font-weight:400;color:var(--muted);margin-left:6px;letter-spacing:0}
+
+.grid-home{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:18px;align-items:start}
+.current{display:grid;grid-template-columns:150px minmax(0,1fr);gap:22px;align-items:start}
+.chip{display:inline-block;font-size:11px;padding:3px 8px;border-radius:6px;background:var(--raised);border:1px solid var(--border);color:var(--muted)}
+.current h2{font-size:28px;letter-spacing:-.02em;margin:10px 0 2px;line-height:1.1}
+.current .author{color:var(--muted);margin:0 0 16px}
+.prog-row{display:flex;justify-content:space-between;font-size:13px;font-variant-numeric:tabular-nums}
+.prog-row span:last-child{color:var(--mint);font-family:var(--font-mono);font-size:12px}
+.bar{height:6px;border-radius:6px;background:var(--raised);overflow:hidden;margin:8px 0 10px}
+.bar i{display:block;height:100%;background:var(--mint);border-radius:6px;box-shadow:0 0 10px rgba(46,230,166,.45)}
+.hint{font-size:13px;color:var(--muted);margin:0}
+.stack{display:flex;flex-direction:column;gap:12px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+
+/* Covers */
+.cover{position:relative;aspect-ratio:2/3;max-width:100%;border-radius:8px;overflow:hidden;background:linear-gradient(160deg,var(--raised),#0d1311);border:1px solid var(--border);display:flex;flex-direction:column;justify-content:space-between;padding:12px;box-shadow:0 10px 30px rgba(0,0,0,.35)}
+.cover img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.cover .ct{font-weight:700;font-size:15px;line-height:1.15;letter-spacing:-.01em;text-wrap:balance;overflow:hidden;display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical}
+.cover .ca{font-family:var(--font-mono);font-size:10px;letter-spacing:.06em;color:var(--muted);text-transform:uppercase}
+.cover::after{content:"";position:absolute;left:0;top:0;bottom:0;width:6px;background:linear-gradient(90deg,rgba(0,0,0,.35),transparent)}
+.cover[data-tone="1"]{background:linear-gradient(160deg,#1a2a23,#0e1613)}
+.cover[data-tone="2"]{background:linear-gradient(160deg,#16231f,#0b1210)}
+.cover[data-tone="3"]{background:linear-gradient(160deg,#1f2a22,#111814)}
+.cover[data-tone="4"]{background:linear-gradient(160deg,#152520,#0a1311)}
+.cover.sm .ct{font-size:12px;-webkit-line-clamp:4}
+.cover.sm{padding:9px}
+
+/* Ritmo */
+.ring{--p:0;width:74px;height:74px;border-radius:50%;background:conic-gradient(var(--mint) calc(var(--p)*1%),var(--raised) 0);display:grid;place-items:center;flex:none}
+.ring b{width:60px;height:60px;border-radius:50%;background:var(--surface);display:grid;place-items:center;font-size:15px;font-variant-numeric:tabular-nums}
+.week{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;text-align:center}
+.week span{font-family:var(--font-mono);font-size:10px;color:var(--faint)}
+.week i{display:grid;place-items:center;aspect-ratio:1;max-height:30px;border-radius:7px;background:var(--raised);border:1px solid var(--line);color:var(--ink);font-style:normal}
+.week i.on{background:var(--mint);border-color:var(--mint)}
+.week i.today{border-color:var(--mint)}
+.timer{font-family:var(--font-mono);font-size:34px;letter-spacing:.06em;font-variant-numeric:tabular-nums}
+hr.sep{border:0;border-top:1px solid var(--line);margin:4px 0}
+
+/* Book cards */
+.books{display:grid;grid-template-columns:repeat(auto-fill,minmax(178px,1fr));gap:16px}
+.books.small{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+.bk{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.bk:hover{border-color:var(--border)}
+.bk .cover{width:100%}
+.bk-top{display:flex;justify-content:space-between;align-items:center;gap:6px}
+.status{font-family:var(--font-mono);font-size:10px;letter-spacing:.14em;color:var(--muted)}
+.status.reading{color:var(--mint)}
+.rating{font-size:12px;color:var(--warn);font-variant-numeric:tabular-nums}
+.bk h3{margin:0;font-size:15px;line-height:1.25;letter-spacing:-.01em;overflow-wrap:anywhere}
+.bk .au{margin:0;font-size:13px;color:var(--muted)}
+.bk .au.empty{color:var(--faint);font-style:italic}
+.bk .meta{font-size:12px;color:var(--faint)}
+.bk .meta.hi{color:var(--mint)}
+.bk-foot{margin-top:auto;display:flex;flex-direction:column;gap:8px}
+.bk .btn{width:100%}
+.books.small .bk{padding:11px;gap:8px}
+.books.small .bk h3{font-size:14px}
+
+.group-h{display:flex;align-items:center;gap:14px;margin-top:8px}
+.group-ico{width:44px;height:44px;border-radius:12px;background:var(--surface);border:1px solid var(--border);display:grid;place-items:center;color:var(--mint);flex:none}
+.group-h h2{margin:2px 0 0;font-size:24px;letter-spacing:-.02em;display:flex;align-items:center;gap:10px}
+.group-h h2 .n{font-size:12px;font-family:var(--font-mono);padding:2px 8px;border-radius:6px;background:var(--raised);color:var(--muted);letter-spacing:0}
+.divider{border:0;border-top:1px dashed var(--border);margin:10px 0 0}
+.cat-h{display:flex;align-items:baseline;gap:10px;margin:8px 0 0;font-size:17px}
+.cat-h .n{font-family:var(--font-mono);font-size:12px;color:var(--muted)}
+
+.tabs{display:flex;gap:4px;flex-wrap:wrap}
+.tabs button{background:none;border:1px solid transparent;color:var(--muted);padding:8px 14px;border-radius:10px;font-size:14px}
+.tabs button[aria-pressed="true"]{color:var(--mint);background:var(--surface);border-color:var(--border)}
+.search{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:0 14px}
+.search input{flex:1;min-width:0;background:none;border:0;padding:13px 0;outline:none}
+.toolbar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:16px}
+.toolbar .lbl{color:var(--muted);font-size:14px}
+select.inp,input.inp,textarea.inp{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:9px 12px;min-width:0;width:100%}
+textarea.inp{min-height:84px;resize:vertical}
+.toolbar select.inp{width:auto;min-width:200px}
+.note-auto{font-size:13px;color:var(--faint);margin:0}
+
+/* Journal */
+.journal{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:18px;align-items:start}
+.sess{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px;padding:14px 0;border-bottom:1px solid var(--line)}
+.sess:last-child{border-bottom:0}
+.sess .d{grid-column:1/-1;font-family:var(--font-mono);font-size:10px;letter-spacing:.18em;color:var(--faint)}
+.sess .t{font-weight:700}
+.sess .m{font-family:var(--font-mono);font-size:12px;color:var(--mint);text-align:right}
+.sess .p{font-size:13px;color:var(--muted)}
+.sess .x{grid-column:1/-1;font-size:14px;margin:4px 0 0;padding:8px 12px;border-left:2px solid var(--mint);background:var(--mint-soft);border-radius:0 8px 8px 0}
+.sess .del{grid-column:2;justify-self:end}
+.take{padding:12px 0;border-bottom:1px solid var(--line)}
+.take:last-child{border-bottom:0}
+.take b{display:block;margin-bottom:3px}
+.take p{margin:0;color:var(--muted);font-size:14px}
+
+/* Balance */
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.cal .h{font-family:var(--font-mono);font-size:10px;color:var(--faint);text-align:center}
+.cal .c{aspect-ratio:1/.82;border-radius:8px;background:var(--raised);border:1px solid var(--line);display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:12px;color:var(--faint);font-variant-numeric:tabular-nums}
+.cal .c.on{background:rgba(169,244,192,.13);border-color:rgba(169,244,192,.25);color:var(--text)}
+.cal .c.on small{color:var(--mint);font-size:10px}
+.cal .c.today{border-color:var(--mint)}
+.cal .c.blank{background:none;border:0}
+.bars7{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;align-items:end;height:170px}
+.bars7 div{display:flex;flex-direction:column;align-items:center;gap:6px;height:100%;justify-content:flex-end}
+.bars7 b{font-size:12px;color:var(--mint);font-variant-numeric:tabular-nums}
+.bars7 .track{width:100%;flex:1;background:var(--raised);border-radius:6px;display:flex;align-items:flex-end;overflow:hidden}
+.bars7 .fill{width:100%;background:var(--mint);border-radius:6px}
+.bars7 span{font-size:11px;color:var(--muted)}
+.two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;align-items:start}
+.kv{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));border:1px solid var(--line);border-radius:var(--r);background:var(--surface);overflow:hidden}
+.kv>div{padding:16px 18px;border-bottom:1px solid var(--line)}
+.kv>div:nth-child(odd){border-right:1px solid var(--line)}
+.kv>div:nth-last-child(-n+2){border-bottom:0}
+.big{font-size:34px;font-weight:700;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.big small{font-size:14px;font-weight:400;color:var(--muted);margin-left:6px}
+.chart{width:100%;height:auto;display:block}
+.chart text{fill:var(--muted);font-family:var(--font-mono);font-size:10px}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+.heat-wrap{overflow-x:auto;padding-bottom:4px}
+.heat{display:grid;grid-auto-flow:column;grid-template-rows:repeat(7,11px);gap:3px}
+.heat i{width:11px;height:11px;border-radius:3px;background:var(--raised)}
+.heat i.l1{background:#2a5a44}.heat i.l2{background:#3f9c72}.heat i.l3{background:#6fd6a0}.heat i.l4{background:var(--mint)}
+.heat i.fut{background:transparent;border:1px solid var(--line)}
+.heat i.sel{outline:1px solid var(--text)}
+.months{display:grid;grid-auto-flow:column;gap:3px;font-family:var(--font-mono);font-size:10px;color:var(--faint);margin-bottom:6px}
+.tpb{display:flex;flex-direction:column;gap:12px}
+.tpb .r{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px}
+.tpb .r span{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.tpb .bar{grid-column:1/-1;margin:0}
+.seg{display:inline-flex;border:1px solid var(--border);border-radius:9px;overflow:hidden}
+.seg button{background:none;border:0;padding:6px 10px;font-size:12px;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--raised);color:var(--mint)}
+.foot{font-family:var(--font-mono);font-size:10px;letter-spacing:.18em;color:var(--faint);text-transform:uppercase;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:16px}
+
+/* Dialog */
+dialog{border:1px solid var(--border);background:var(--surface);color:var(--text);border-radius:16px;padding:0;width:min(620px,calc(100vw - 32px));max-height:calc(100vh - 40px)}
+dialog::backdrop{background:rgba(0,0,0,.6);backdrop-filter:blur(3px)}
+.dlg{padding:24px;display:flex;flex-direction:column;gap:16px}
+.dlg h2{margin:4px 0 0;font-size:26px;letter-spacing:-.02em}
+.dlg-x{position:absolute;top:14px;right:14px}
+.form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 14px}
+.form .full{grid-column:1/-1}
+.field{display:flex;flex-direction:column;gap:6px;min-width:0}
+.field label{font-size:12px;color:var(--muted)}
+.check{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+.err{color:var(--danger);font-size:13px;margin:0}
+.detail{display:grid;grid-template-columns:130px minmax(0,1fr);gap:18px}
+.facts{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:13px;margin:10px 0 0}
+.facts dt{color:var(--faint)}.facts dd{margin:0}
+.empty{border:1px dashed var(--border);border-radius:var(--r);padding:28px;text-align:center;color:var(--muted)}
+.empty h3{color:var(--text);margin:0 0 6px}
+.login{max-width:420px;margin:6vh auto 0;display:flex;flex-direction:column;gap:14px}
+.login .card{display:flex;flex-direction:column;gap:12px}
+.login .tabs{margin-bottom:4px}
+.ok{color:var(--mint);font-size:13px;margin:0}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));background:var(--raised);border:1px solid var(--border);border-radius:10px;padding:10px 16px;font-size:14px;z-index:30;box-shadow:0 10px 30px rgba(0,0,0,.4)}
+
+/* Phone nav */
+.tabbar{display:none}
+@media (max-width:860px){
+  .app{grid-template-columns:minmax(0,1fr)}
+  .side{display:none}
+  .tabbar{display:grid;grid-template-columns:repeat(6,1fr);position:fixed;left:0;right:0;bottom:0;z-index:20;background:rgba(13,19,17,.96);backdrop-filter:blur(10px);border-top:1px solid var(--line);padding-block:6px calc(6px + env(safe-area-inset-bottom,0px));padding-left:max(6px,env(safe-area-inset-left,0px));padding-right:max(6px,env(safe-area-inset-right,0px))}
+  .tabbar button{background:none;border:0;color:var(--muted);display:flex;flex-direction:column;align-items:center;gap:3px;font-size:10.5px;padding:7px 1px;border-radius:10px;min-width:0;overflow:hidden;text-overflow:ellipsis}
+  .tabbar button[aria-current="page"]{color:var(--mint);background:var(--surface)}
+  .page{padding-bottom:110px}
+  .top,.page{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+  .grid-home,.journal,.two{grid-template-columns:minmax(0,1fr)}
+  .tiles{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .tile:nth-child(2){border-right:0}
+  .tile:nth-child(-n+2){border-bottom:1px solid var(--line)}
+  .hero-aside{display:none}
+}
+@media (max-width:520px){
+  .current{grid-template-columns:100px minmax(0,1fr);gap:14px}
+  .current h2{font-size:22px}
+  .books{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .books.small{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .form{grid-template-columns:minmax(0,1fr)}
+  .detail{grid-template-columns:90px minmax(0,1fr)}
+  .toolbar select.inp{min-width:0;width:100%}
+  .sync{display:none}
+  .top .btn.primary .lbl-long{display:none}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-home" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 5.5C4.5 4 8 4 12 6c4-2 7.5-2 10-.5v13c-2.5-1.5-6-1.5-10 .5-4-2-7.5-2-10-.5z"/><path d="M12 6v13"/></symbol>
+  <symbol id="i-lib" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 4v16M9 4v16M13 4v16M16.5 4.5l4 15"/></symbol>
+  <symbol id="i-mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M6 3h12v18l-6-4-6 4z"/></symbol>
+  <symbol id="i-pen" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13 7l4 4"/></symbol>
+  <symbol id="i-chart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 20V10M10 20V4M16 20v-7M21 20H3"/></symbol>
+  <symbol id="i-goal" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></symbol>
+  <symbol id="i-flame" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 3c1 4 5 5 5 10a5 5 0 0 1-10 0c0-2 1-3 2-4 0 2 1 3 2 3 0-3-1-5 1-9z"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+  <symbol id="i-left" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></symbol>
+  <symbol id="i-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></symbol>
+  <symbol id="i-spark" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.8 6.2L20 10l-6.2 1.8L12 18l-1.8-6.2L4 10l6.2-1.8z"/></symbol>
+  <symbol id="i-review" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M8 3v4M16 3v4M3.5 10h17M9 15l2 2 4-4"/></symbol>
+</svg>
+
+<div class="app">
+  <aside class="side" aria-label="Navegación">
+    <a class="brand" href="#home" data-nav="home">
+      <span class="brand-mark"><svg class="icon"><use href="#i-home"/></svg></span>
+      <span class="brand-name">READING<br>ARC <b>✦</b></span>
+    </a>
+    <div class="stack">
+      <div class="nav-label">Tu espacio</div>
+      <nav class="nav" id="side-nav">
+        <button data-nav="home"><svg class="icon"><use href="#i-home"/></svg>Inicio</button>
+        <button data-nav="library"><svg class="icon"><use href="#i-lib"/></svg>Biblioteca</button>
+        <button data-nav="pending"><svg class="icon"><use href="#i-mark"/></svg>Pendientes<span class="count" id="nav-pend">0</span></button>
+        <button data-nav="journal"><svg class="icon"><use href="#i-pen"/></svg>Diario</button>
+        <button data-nav="review"><svg class="icon"><use href="#i-review"/></svg>Revisión</button>
+        <button data-nav="stats"><svg class="icon"><use href="#i-chart"/></svg>Balance</button>
+      </nav>
+    </div>
+    <div class="side-quote">
+      <div class="nav-label" style="padding:0">01 / Una página más</div>
+      <p>Las buenas ideas empiezan aquí.</p>
+    </div>
+    <div class="side-foot">
+      <nav class="nav"><button data-action="goals"><svg class="icon"><use href="#i-goal"/></svg>Objetivos</button></nav>
+      <div class="me"><span class="avatar">J</span><div style="min-width:0;flex:1">Jaume<small id="me-email" style="overflow:hidden;text-overflow:ellipsis">Mi biblioteca personal</small></div><button class="btn ghost sm" data-action="logout" id="logout-side" hidden>Salir</button></div>
+    </div>
+  </aside>
+
+  <div class="main">
+    <header class="top">
+      <div class="crumb">Mi espacio<span>/</span><b id="crumb-here" style="font-weight:400;color:var(--text)">Inicio</b></div>
+      <div class="top-actions">
+        <span class="sync off" id="sync"><i></i><span>Conectando…</span></span>
+        <button class="btn primary" data-action="add-book"><svg class="icon"><use href="#i-plus"/></svg><span>Añadir <span class="lbl-long">libro</span></span></button>
+      </div>
+    </header>
+    <main class="page" id="view" aria-live="polite"></main>
+  </div>
+</div>
+
+<nav class="tabbar" id="tab-nav" aria-label="Secciones">
+  <button data-nav="home"><svg class="icon"><use href="#i-home"/></svg>Inicio</button>
+  <button data-nav="library"><svg class="icon"><use href="#i-lib"/></svg>Biblioteca</button>
+  <button data-nav="pending"><svg class="icon"><use href="#i-mark"/></svg>Pendientes</button>
+  <button data-nav="journal"><svg class="icon"><use href="#i-pen"/></svg>Diario</button>
+  <button data-nav="review"><svg class="icon"><use href="#i-review"/></svg>Revisión</button>
+  <button data-nav="stats"><svg class="icon"><use href="#i-chart"/></svg>Balance</button>
+</nav>
+
+<dialog id="dlg"><div id="dlg-body"></div></dialog>
+<div class="toast" id="toast" hidden></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="config.js"></script>
+<script>
+(() => {
+const CATS = ["Hábitos y crecimiento personal","Empresa y emprendimiento","Finanzas e inversión","Tecnología e IA","Deporte y salud","Biografías","Novela y ficción","Ciencia y divulgación","Historia y sociedad","Otros","Por clasificar"];
+const KEYWORDS = [
+  ["Finanzas e inversión",/invers|bolsa|dinero|mercado|wall street|buffett|financ|riqueza|econom/i],
+  ["Tecnología e IA",/inteligencia artificial|\bia\b|tecnolog|algoritm|silicon|innovador|software|datos|\bai\b/i],
+  ["Deporte y salud",/deport|correr|marat|entren|salud|nutric|sueño|atlet|fútbol|running|moneyball/i],
+  ["Biografías",/biograf|memorias|mi historia|vida de/i],
+  ["Empresa y emprendimiento",/empresa|emprend|startup|negocio|liderazgo|ceo|ventas|marketing|estrategia/i],
+  ["Hábitos y crecimiento personal",/hábito|habito|disciplina|productiv|éxito|mente|mentalidad|crecimiento/i],
+  ["Historia y sociedad",/historia|sociedad|polít|guerra|mundo/i],
+  ["Ciencia y divulgación",/ciencia|cerebro|psicolog|estadíst|física|biolog/i],
+  ["Novela y ficción",/novela|relatos|cuentos/i]
+];
+const STATUS = {reading:"Leyendo",pending:"Pendiente",paused:"Pausado",done:"Terminado"};
+const VIEWS = {home:"Inicio",library:"Biblioteca",pending:"Pendientes",journal:"Diario",review:"Revisión",stats:"Balance"};
+const MES = ["ene","feb","mar","abr","may","jun","jul","ago","sept","oct","nov","dic"];
+const MESL = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+const DIA = ["dom","lun","mar","mié","jue","vie","sáb"];
+const DIAL = ["domingo","lunes","martes","miércoles","jueves","viernes","sábado"];
+
+const S = {ready:false, authed:false, sb:null, uid:null, books:[], sessions:[], reviews:[], settings:{dailyMinutes:20,weeklyDays:7,yearlyBooks:12}, loaded:{books:false,sessions:false}, db:null, assets:null, canWrite:true, available:true};
+const U = {view:"home", authMode:"login", authEmail:"", revWeek:null, revDraft:{}, lib:"all", libCat:"", q:"", pend:"all", pendCat:"", evoRange:"weeks", evoMetric:"min", calY:null, calM:null, heatYear:null, heatSel:null, monthsYear:null,
+  timer:{running:false, start:0, acc:0, iv:null}};
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const pad = n => String(n).padStart(2,"0");
+const iso = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const parse = s => { const [y,m,d] = s.split("-").map(Number); return new Date(y,m-1,d); };
+const today = () => iso(new Date());
+const addDays = (d,n) => { const x = new Date(d); x.setDate(x.getDate()+n); return x; };
+const mondayOf = d => { const x = new Date(d.getFullYear(),d.getMonth(),d.getDate()); const k = (x.getDay()+6)%7; x.setDate(x.getDate()-k); return x; };
+const fmtMin = m => { m = Math.round(m); const h = Math.floor(m/60), r = m%60; return h ? `${h} h ${r} min` : `${r} min`; };
+const longDate = s => { const d = parse(s); return `${d.getDate()} de ${MESL[d.getMonth()]} de ${d.getFullYear()}`; };
+const icon = (id,cls="icon") => `<svg class="${cls}"><use href="#i-${id}"/></svg>`;
+const ratingTxt = r => r==null || r==="" ? "" : `★ ${Number(r)%1 ? Number(r).toFixed(1) : Number(r)}/10`;
+const tone = b => { let h=0; for (const c of (b.title||"")) h = (h*31 + c.charCodeAt(0))>>>0; return 1 + h%4; };
+const bookById = id => S.books.find(b => b.id === id);
+const sortTitle = (a,b) => (a.title||"").localeCompare(b.title||"","es",{sensitivity:"base"});
+const sortPending = (a,b) => (a.next?0:1)-(b.next?0:1) || (a.priority??2)-(b.priority??2) || sortTitle(a,b);
+const QUEUE_MAX = 3;
+const queued = () => S.books.filter(b => b.status==="pending" && b.next);
+const byOrder = (a,b) => (a.order??1e15)-(b.order??1e15) || sortTitle(a,b);
+const CFG = window.RA_CONFIG || {};
+const safeCover = u => typeof u === "string" && (/^covers\/[a-z0-9-]+\.jpg$/.test(u) || (CFG.url && u.startsWith(CFG.url + "/storage/v1/object/public/covers/")) || u.startsWith("data:image/")) ? u : "";
+
+function coverHTML(b, small=false){
+  const src = safeCover(b.cover);
+  return `<div class="cover${small?" sm":""}" data-tone="${tone(b)}">${src ? `<img src="${esc(src)}" alt="Portada de ${esc(b.title)}" loading="lazy">` : `<span class="ct">${esc(b.title)}</span><span class="ca">${esc(b.author || "")}</span>`}</div>`;
+}
+
+/* ---------- derived stats ---------- */
+function stats(){
+  const goal = Number(S.settings.dailyMinutes)||20;
+  const byDay = new Map();
+  for (const s of S.sessions){
+    const r = byDay.get(s.date) || {min:0,pages:0,n:0};
+    r.min += Number(s.minutes)||0; r.pages += Math.max(0,(Number(s.pageTo)||0)-(Number(s.pageFrom)||0)); r.n++;
+    byDay.set(s.date, r);
+  }
+  const days = [...byDay.keys()].filter(k => byDay.get(k).min > 0).sort();
+  const t = today();
+  // current streak
+  let cur = 0, d = new Date();
+  if (!(byDay.get(t)?.min > 0)) d = addDays(d,-1);
+  while (byDay.get(iso(d))?.min > 0){ cur++; d = addDays(d,-1); }
+  // best streak
+  let best = 0, run = 0, prev = null;
+  for (const k of days){ run = prev && iso(addDays(parse(prev),1)) === k ? run+1 : 1; best = Math.max(best,run); prev = k; }
+  const totalMin = [...byDay.values()].reduce((a,r)=>a+r.min,0);
+  const totalPages = [...byDay.values()].reduce((a,r)=>a+r.pages,0);
+  // daily compliance: closed days from first session (max 30), today excluded
+  let ok = 0, tot = 0, from = null, to = null;
+  if (days.length){
+    const first = parse(days[0]); let start = first; const end = addDays(new Date(),-1);
+    const lim = addDays(end,-29); if (start < lim) start = lim;
+    for (let x = new Date(start); x <= end; x = addDays(x,1)){ tot++; if ((byDay.get(iso(x))?.min||0) >= goal) ok++; if(!from) from = iso(x); to = iso(x); }
+  }
+  const week0 = mondayOf(new Date());
+  const weekDays = []; let weekMin = 0;
+  for (let i=0;i<7;i++){ const k = iso(addDays(week0,i)); const m = byDay.get(k)?.min||0; weekDays.push({k, m, on: m>0}); weekMin += m; }
+  const rated = S.books.filter(b => b.rating!=null && b.rating!=="" && !isNaN(Number(b.rating)));
+  const avg = rated.length ? rated.reduce((a,b)=>a+Number(b.rating),0)/rated.length : null;
+  return {byDay, days, cur, best, totalMin, totalPages, ok, tot, from, to, weekDays, weekMin, avg, goal,
+    todayMin: byDay.get(t)?.min||0, avgPerDay: days.length ? totalMin/days.length : 0};
+}
+
+/* ---------- views ---------- */
+const views = {home: vHome, library: vLibrary, pending: vPending, journal: vJournal, review: vReview, stats: vStats};
+
+function render(){
+  const v = U.view;
+  document.querySelectorAll("[data-nav]").forEach(b => { if (b.tagName==="BUTTON") b.setAttribute("aria-current", b.dataset.nav===v ? "page" : "false"); });
+  $("#crumb-here").textContent = VIEWS[v];
+  $("#nav-pend").textContent = S.books.filter(b=>b.status==="pending").length;
+  document.querySelectorAll('[data-action="add-book"]').forEach(b => b.hidden = !S.canWrite);
+  document.querySelectorAll(".tabbar,.side .nav,.top-actions").forEach(el => el.style.visibility = S.authed ? "" : "hidden");
+  const loading = S.authed && !(S.loaded.books && S.loaded.sessions);
+  $("#view").innerHTML = !S.ready ? loadingHTML() : !S.available ? unavailableHTML() : U.recovery ? recoveryHTML() : !S.authed ? loginHTML() : loading ? loadingHTML() : views[v]();
+  afterRender();
+}
+const footer = () => `<div class="foot"><span>Reading Arc ✦</span><span>Portadas: Open Library · <button class="btn ghost sm" data-action="logout" style="font:inherit;letter-spacing:inherit;color:var(--muted);padding:0">Cerrar sesión</button></span></div>`;
+function loadingHTML(){ return `<section class="hero"><p class="eyebrow">${esc(heroDate())}</p><h1>Tu próximo <em>capítulo.</em></h1><p>Abriendo tu biblioteca…</p></section>`; }
+function unavailableHTML(){ return `<section class="hero"><p class="eyebrow">Reading Arc</p><h1>Sin <em>conexión.</em></h1><p>${esc(S.availErr || "No se ha podido conectar con tu biblioteca. Comprueba tu conexión y recarga la página.")}</p></section>`; }
+function loginHTML(){
+  const up = U.authMode === "signup";
+  return `<section class="login">
+    <div class="hero"><p class="eyebrow">${esc(heroDate())}</p><h1>Tu próximo <em>capítulo.</em></h1><p>Entra para abrir tu biblioteca. Se sincroniza entre el PC y el móvil.</p></div>
+    <form class="card" id="auth-form" novalidate>
+      <div class="tabs" role="group" aria-label="Acceso"><button type="button" data-auth="login" aria-pressed="${!up}">Entrar</button><button type="button" data-auth="signup" aria-pressed="${up}">Crear cuenta</button></div>
+      <div class="field"><label for="a-email">Email</label><input class="inp" id="a-email" type="email" autocomplete="email" value="${esc(U.authEmail||"")}" required></div>
+      <div class="field"><label for="a-pass">Contraseña</label><input class="inp" id="a-pass" type="password" autocomplete="${up?"new-password":"current-password"}" minlength="8" required></div>
+      ${up?`<p class="hint">Mínimo 8 caracteres. Te llegará un email para confirmar la cuenta.</p>`:""}
+      <p class="err" id="a-err" hidden></p><p class="ok" id="a-ok" hidden></p>
+      <button class="btn primary" type="submit">${up?"Crear cuenta":"Entrar"}</button>
+      ${up?"":`<button type="button" class="btn ghost sm" data-action="reset-pass" style="align-self:flex-start">He olvidado la contraseña</button>`}
+    </form>
+  </section>`;
+}
+function heroDate(){ const d = new Date(); return `${DIAL[d.getDay()]}, ${d.getDate()} de ${MESL[d.getMonth()]}`; }
+function emptyLibraryHTML(){ return `<div class="empty"><h3>Tu biblioteca está vacía</h3><p>Añade el libro que estás leyendo o uno que quieras leer. Aquí aparecerán tu lectura actual, tu ritmo y tus notas.</p>${S.canWrite?`<p><button class="btn primary" data-action="add-book">${icon("plus")}Añadir libro</button></p>`:""}</div>`; }
+
+/* Estimated finish: pages per reading day for this book × how often you've read in the last 14 days */
+function finishEstimate(b){
+  if (!b || !b.total) return null;
+  const left = Math.max(0, b.total - (Number(b.page)||0)); if (!left) return null;
+  const ss = S.sessions.filter(s => s.bookId === b.id);
+  const days = new Set(ss.map(s => s.date));
+  if (days.size < 3) return {left};
+  const pages = ss.reduce((a,s) => a + Math.max(0,(Number(s.pageTo)||0)-(Number(s.pageFrom)||0)), 0);
+  const ppd = pages / days.size; if (!(ppd > 0)) return {left};
+  const need = Math.ceil(left / ppd);
+  const st = stats(); let read = 0;
+  for (let i = 0; i < 14; i++) if ((st.byDay.get(iso(addDays(new Date(),-i)))?.min||0) > 0) read++;
+  const freq = Math.max(read/14, 1/7);
+  return {left, ppd, need, date: addDays(new Date(), Math.ceil(need/freq))};
+}
+function finishText(b){
+  const e = finishEstimate(b); if (!e) return "";
+  if (!e.date) return `Te quedan ${e.left} páginas. Registra unas cuantas sesiones más y calcularé cuándo lo terminas.`;
+  return `Te quedan ${e.left} páginas. A tu ritmo (unas ${Math.round(e.ppd)} páginas por día de lectura), lo terminas hacia el <b style="color:var(--text)">${e.date.getDate()} de ${MESL[e.date.getMonth()]}</b>.`;
+}
+
+function currentBook(){
+  const reading = S.books.filter(b => b.status==="reading");
+  if (!reading.length) return null;
+  const last = id => S.sessions.filter(s=>s.bookId===id).map(s=>s.date).sort().pop() || "";
+  return reading.sort((a,b) => last(b.id).localeCompare(last(a.id)))[0];
+}
+
+function vHome(){
+  const st = stats();
+  if (!S.books.length) return heroHome() + emptyLibraryHTML() + footer();
+  const done = S.books.filter(b=>b.status==="done").length;
+  const pend = S.books.filter(b=>b.status==="pending").length;
+  const cb = currentBook();
+  const pct = Math.min(100, Math.round(st.todayMin / st.goal * 100));
+  const weekOn = st.weekDays.filter(d=>d.on).length;
+  const t = today();
+  let curHTML;
+  if (cb){
+    const p = cb.total ? Math.round(cb.page/cb.total*100) : 0;
+    const left = cb.total ? Math.max(0, cb.total - cb.page) : null;
+    curHTML = `<div class="current">
+      <div>${coverHTML(cb)}</div>
+      <div>
+        <span class="chip">${esc(cb.category||"Por clasificar")}</span>
+        <h2>${esc(cb.title)}</h2>
+        <p class="author">${esc(cb.author||"Autor por añadir")}</p>
+        <div class="prog-row"><span>Página ${cb.page||0}${cb.total?` de ${cb.total}`:""}</span><span>${cb.total?`${p}% completado`:"Sin total de páginas"}</span></div>
+        <div class="bar"><i style="width:${p}%"></i></div>
+        <p class="hint">${left!=null ? finishText(cb) : "Añade el total de páginas para ver tu progreso."}</p>
+        <div class="stack" style="margin-top:16px">
+          ${S.canWrite?`<button class="btn primary" data-action="log" data-id="${esc(cb.id)}">${icon("plus")}Registrar lectura</button>`:""}
+          <button class="btn ghost" data-action="detail" data-id="${esc(cb.id)}" style="justify-content:flex-start">Notas y detalles ${icon("arrow")}</button>
+        </div>
+      </div></div>`;
+  } else {
+    const next = S.books.filter(b=>b.status==="pending").sort(sortPending)[0];
+    curHTML = `<div class="empty"><h3>No estás leyendo nada ahora</h3><p>${next?`Tu siguiente en la lista es <b>${esc(next.title)}</b>.`:"Añade un libro para empezar."}</p>${next&&S.canWrite?`<button class="btn primary" data-action="start" data-id="${esc(next.id)}">Empezar ${esc(next.title)}</button>`:""}</div>`;
+  }
+  const shelf = [...S.books.filter(b=>b.status==="reading"), ...S.books.filter(b=>b.status==="done").sort((a,b)=>(b.finishedAt||"").localeCompare(a.finishedAt||"") || byOrder(a,b))].slice(0,4);
+  const tm = timerText();
+  return heroHome() + reviewBanner() + `
+  <section class="tiles" aria-label="Resumen">
+    <div class="tile"><div class="lbl">${icon("check")}Terminados</div><div class="val">${done}<small>libros</small></div></div>
+    <div class="tile"><div class="lbl">${icon("flame")}Racha actual</div><div class="val">${st.cur}<small>días</small></div></div>
+    <div class="tile"><div class="lbl">${icon("clock")}Esta semana</div><div class="val">${Math.round(st.weekMin)}<small>min</small></div></div>
+    <div class="tile"><div class="lbl">${icon("mark")}Por descubrir</div><div class="val">${pend}<small>libros</small></div></div>
+  </section>
+  <section class="grid-home">
+    <div class="card"><div class="card-h"><p class="eyebrow"><span class="dot"></span>Ahora estás leyendo</p><button class="btn ghost sm" data-nav="library">Ver biblioteca ${icon("arrow")}</button></div>${curHTML}</div>
+    <div class="card stack">
+      <div class="card-h" style="margin:0"><p class="eyebrow">Mi ritmo</p>${S.canWrite?`<button class="btn ghost sm" data-action="goals" aria-label="Ajustar objetivos">${icon("goal")}</button>`:""}</div>
+      <div class="row" style="justify-content:space-between;flex-wrap:nowrap">
+        <div><div style="color:var(--muted);font-size:13px">Lectura de hoy</div><div class="big">${Math.round(st.todayMin)}<small>/ ${st.goal} min</small></div></div>
+        <div class="ring" style="--p:${pct}"><b>${pct}%</b></div>
+      </div>
+      <div class="row" style="justify-content:space-between"><span style="font-size:13px;color:var(--muted)">Esta semana</span><span style="font-family:var(--font-mono);font-size:12px">${weekOn} / ${S.settings.weeklyDays} días</span></div>
+      <div class="week">${["L","M","X","J","V","S","D"].map(l=>`<span>${l}</span>`).join("")}${st.weekDays.map(d=>`<i class="${d.on?"on":""} ${d.k===t?"today":""}" title="${esc(longDate(d.k))}: ${Math.round(d.m)} min">${d.on?icon("check","icon"):""}</i>`).join("")}</div>
+      <p class="hint">La constancia se construye página a página.</p>
+      <hr class="sep">
+      <p class="eyebrow">${icon("clock")} Tiempo para leer</p>
+      <div class="row" style="justify-content:space-between">
+        <span class="timer" id="timer-txt">${tm}</span>
+        <div class="row">
+          <button class="btn sm" data-action="timer-toggle">${U.timer.running?"Pausar":(U.timer.acc?"Seguir":"Empezar")}</button>
+          ${(U.timer.acc||U.timer.running)&&S.canWrite?`<button class="btn sm primary" data-action="timer-log">Registrar</button><button class="btn sm ghost" data-action="timer-reset">Reiniciar</button>`:""}
+        </div>
+      </div>
+    </div>
+  </section>
+  <section class="card">
+    <div class="card-h"><p class="eyebrow">Cada libro deja algo</p><div class="row"><span style="font-size:13px;color:var(--muted)">En tu estantería ${S.books.length}</span><button class="btn ghost sm" data-nav="library">Ver todos ${icon("arrow")}</button></div></div>
+    <div class="books">${shelf.map(b=>bookCard(b)).join("")}</div>
+  </section>` + footer();
+}
+function heroHome(){ return `<section class="hero hero-row"><div><p class="eyebrow">${esc(heroDate())}</p><h1>Tu próximo <em>capítulo.</em></h1><p>Un poco cada día. Mucho a lo largo del tiempo.</p></div><div class="hero-aside">Read more.<br>Become more.</div></section>`; }
+
+function bookCard(b, small=false){
+  const st = b.status;
+  let meta = "", action = "";
+  if (st==="reading"){ meta = `<span class="meta hi">Pág. ${b.page||0}${b.total?` / ${b.total}`:""}</span>`; if (S.canWrite) action = `<button class="btn sm" data-action="log" data-id="${esc(b.id)}">Registrar lectura</button>`; }
+  else if (st==="done"){ action = `<button class="btn sm ghost" data-action="detail" data-id="${esc(b.id)}">Ver mis notas</button>`; }
+  else {
+    const own = b.ownership==="bought" ? "Comprado" : "Recomendado";
+    meta = `<span class="meta${b.priority===1||b.next?" hi":""}">${b.next?"Siguiente · ":""}${own}${b.priority===1?" · Prioridad alta":b.priority===3?" · Para más adelante":""}</span>`;
+    if (S.canWrite){
+      action = `<button class="btn sm" data-action="start" data-id="${esc(b.id)}">${st==="paused"?"Retomar":"Empezar"}</button>`;
+      if (st==="pending"){ const full = !b.next && queued().length >= QUEUE_MAX;
+        action += `<button class="btn sm ghost" data-action="queue" data-id="${esc(b.id)}" ${full?`disabled title="Ya tienes ${QUEUE_MAX} en Siguientes"`:""}>${b.next?"Pasar a Algún día":"Añadir a Siguientes"}</button>`; }
+    }
+  }
+  return `<article class="bk">
+    <button style="all:unset;cursor:pointer;display:block" data-action="detail" data-id="${esc(b.id)}" aria-label="Abrir ${esc(b.title)}">${coverHTML(b, small)}</button>
+    <div class="bk-top"><span class="status ${st}">${esc(STATUS[st]||"").toUpperCase()}</span><span class="rating">${ratingTxt(b.rating)}</span></div>
+    <div><h3>${esc(b.title)}</h3><p class="au${b.author?"":" empty"}">${esc(b.author||"Autor por añadir")}</p></div>
+    <span class="meta">${esc(b.category||"Por clasificar")}</span>
+    <div class="bk-foot">${meta}${action}</div>
+  </article>`;
+}
+
+function catOptions(sel, withAll=true){ return (withAll?`<option value="">Todas</option>`:"") + CATS.map(c=>`<option ${c===sel?"selected":""}>${esc(c)}</option>`).join(""); }
+
+function vLibrary(){
+  if (!S.books.length) return libHero() + emptyLibraryHTML() + footer();
+  const q = U.q.trim().toLowerCase();
+  let list = S.books.filter(b => (!U.libCat || b.category===U.libCat) && (!q || (b.title+" "+(b.author||"")).toLowerCase().includes(q)));
+  const filt = U.lib;
+  const tabs = [["all","Todos"],["reading","Leyendo"],["pending","Pendientes"],["paused","Pausados"],["done","Terminados"]];
+  let body = "";
+  const group = (ico, eyebrow, title, items, small=false) => items.length ? `<section class="stack"><div class="group-h"><span class="group-ico">${icon(ico)}</span><div><p class="eyebrow">${eyebrow}</p><h2>${title} <span class="n">${items.length}</span></h2></div></div><div class="books${small?" small":""}">${items.map(b=>bookCard(b,small)).join("")}</div></section>` : "";
+  if (filt==="all"){
+    const parts = [
+      group("home","Tu lectura actual","Leyendo", list.filter(b=>b.status==="reading")),
+      group("check","Tu estantería completada","Leídos", list.filter(b=>b.status==="done").sort(byOrder)),
+      group("mark","En pausa","Pausados", list.filter(b=>b.status==="paused").sort(sortTitle)),
+      group("lib","Tus próximas lecturas","Por leer", list.filter(b=>b.status==="pending").sort(sortPending), true)
+    ].filter(Boolean);
+    body = parts.join(`<hr class="divider">`);
+  } else {
+    const items = list.filter(b=>b.status===filt).sort(filt==="pending"?sortPending:byOrder);
+    body = items.length ? `<div class="books${filt==="pending"?" small":""}">${items.map(b=>bookCard(b, filt==="pending")).join("")}</div>` : "";
+    list = items;
+  }
+  if (!body) body = `<div class="empty"><h3>Nada por aquí</h3><p>No hay libros que coincidan con este filtro.</p></div>`;
+  return libHero() + `
+  <div class="tabs" role="group" aria-label="Estado">${tabs.map(([k,l])=>`<button data-lib="${k}" aria-pressed="${filt===k}">${l}</button>`).join("")}</div>
+  <label class="search">${icon("search")}<input id="lib-q" type="search" placeholder="Buscar título o autor" value="${esc(U.q)}" autocomplete="off"></label>
+  <div class="toolbar"><span class="lbl">${list.length} libros</span><label class="row"><span class="lbl">Categoría</span><select class="inp" id="lib-cat">${catOptions(U.libCat)}</select></label></div>
+  ${body}` + footer();
+}
+function libHero(){ return `<section class="hero"><p class="eyebrow">Todas tus lecturas</p><h1>Mi <em>biblioteca.</em></h1><p>Tus libros, tus valoraciones y todo lo que te llevas de ellos.</p></section>`; }
+
+function vPending(){
+  const hero = `<section class="hero"><p class="eyebrow">Lo que viene después</p><h1>Por <em>descubrir.</em></h1><p>Comprados y recomendados, ordenados por lo que te interesa.</p></section>`;
+  let list = S.books.filter(b=>b.status==="pending");
+  if (U.pend==="bought") list = list.filter(b=>b.ownership==="bought");
+  if (U.pend==="wish") list = list.filter(b=>b.ownership!=="bought");
+  if (U.pendCat) list = list.filter(b=>b.category===U.pendCat);
+  const q = queued().sort(sortPending);
+  const someday = list.filter(b => !b.next);
+  const groups = CATS.map(c => [c, someday.filter(b=>(b.category||"Por clasificar")===c).sort(sortPending)]).filter(([,l])=>l.length);
+  const tabs = [["all","Todos"],["bought","Comprados"],["wish","Recomendados"]];
+  const high = S.books.filter(b => b.status==="pending" && !b.next && b.priority===1).sort(sortTitle);
+  const nextHTML = `<section class="card stack">
+    <div class="group-h" style="margin:0"><span class="group-ico">${icon("arrow")}</span><div><p class="eyebrow">Lo próximo que vas a leer</p><h2>Siguientes <span class="n">${q.length} / ${QUEUE_MAX}</span></h2></div></div>
+    ${q.length ? `<div class="books">${q.map(b=>bookCard(b)).join("")}</div>` : `<div class="empty" style="text-align:left"><h3>Elige hasta ${QUEUE_MAX} libros</h3><p>Tu siguiente lectura sale de aquí. El resto se queda en «Algún día» y no compite por tu atención.</p>${high.length&&S.canWrite?`<p class="hint" style="margin:12px 0 8px">Los que marcaste con prioridad alta:</p><div class="row">${high.map(b=>`<button class="btn sm" data-action="queue" data-id="${esc(b.id)}">${icon("plus")}${esc(b.title)}</button>`).join("")}</div>`:""}</div>`}
+    ${q.length >= QUEUE_MAX ? `<p class="hint">Cola llena. Para añadir otro, pasa uno a «Algún día» o empieza a leerlo.</p>` : ""}
+  </section>`;
+  return hero + nextHTML + `
+  <div class="group-h"><span class="group-ico">${icon("mark")}</span><div><p class="eyebrow">Sin prisa</p><h2>Algún día <span class="n">${someday.length}</span></h2></div></div>
+  <div class="tabs" role="group" aria-label="Origen">${tabs.map(([k,l])=>`<button data-pend="${k}" aria-pressed="${U.pend===k}">${l}</button>`).join("")}</div>
+  <div class="toolbar"><span class="lbl">${someday.length} libros</span><label class="row"><span class="lbl">Categoría</span><select class="inp" id="pend-cat">${catOptions(U.pendCat)}</select></label></div>
+  <p class="note-auto">Al añadir un título, buscamos su categoría automáticamente. Puedes cambiarla cuando quieras.</p>
+  ${groups.length ? groups.map(([c,l])=>`<section class="stack"><h2 class="cat-h">${esc(c)} <span class="n">${l.length}</span></h2><div class="books small">${l.map(b=>bookCard(b,true)).join("")}</div></section>`).join("") : `<div class="empty"><h3>Sin pendientes aquí</h3><p>Añade un libro comprado o recomendado para tenerlo a mano.</p></div>`}` + footer();
+}
+
+function vJournal(){
+  const sess = [...S.sessions].sort((a,b)=> b.date.localeCompare(a.date) || (b.pageFrom||0)-(a.pageFrom||0));
+  const notes = S.books.filter(b => (b.notes||"").trim()).sort(byOrder);
+  return `<section class="hero"><p class="eyebrow">Ideas que se quedan</p><h1>Mi <em>diario.</em></h1><p>Registra tus sesiones y vuelve a lo que te hizo pensar.</p></section>
+  <section class="journal">
+    <div class="card">
+      <div class="card-h"><h2 style="margin:0;font-size:18px">Sesiones de lectura <span class="chip">${sess.length}</span></h2>${S.canWrite?`<button class="btn sm primary" data-action="log">${icon("plus")}Registrar</button>`:""}</div>
+      ${sess.length ? sess.map(s => { const b = bookById(s.bookId); return `<div class="sess">
+        <span class="d">${esc(longDate(s.date).toUpperCase())}</span>
+        <span class="t">${esc(b?b.title:"Libro eliminado")}</span><span class="m">${Math.round(s.minutes)} min</span>
+        <span class="p">Págs. ${s.pageFrom??"–"}–${s.pageTo??"–"}</span>${S.canWrite?`<button class="btn sm ghost del" data-action="del-session" data-id="${esc(s.id)}" aria-label="Eliminar sesión">${icon("x")}</button>`:"<span></span>"}
+        ${s.note?`<p class="x">${esc(s.note)}</p>`:""}</div>`; }).join("") : `<div class="empty"><h3>Aún no hay sesiones</h3><p>Usa «Registrar» o el temporizador de Inicio después de leer.</p></div>`}
+    </div>
+    <div class="card">
+      <p class="eyebrow">Lo que me llevo</p><p class="hint" style="margin:6px 0 8px">Tus notas y reflexiones de cada libro.</p>
+      ${notes.length ? notes.map(b=>`<div class="take"><b>${esc(b.title)}</b><p>${esc(b.notes)}</p></div>`).join("") : `<p class="hint">Cuando añadas notas a un libro aparecerán aquí.</p>`}
+    </div>
+  </section>` + footer();
+}
+
+function vStats(){
+  const st = stats(); const now = new Date(); const t = today();
+  if (U.calY==null){ U.calY = now.getFullYear(); U.calM = now.getMonth(); }
+  if (U.heatYear==null) U.heatYear = now.getFullYear();
+  if (U.monthsYear==null) U.monthsYear = now.getFullYear();
+  const year = now.getFullYear();
+  const doneYear = S.books.filter(b=>b.status==="done" && (b.finishedAt||"").startsWith(String(year))).length;
+  const yGoal = Number(S.settings.yearlyBooks)||12;
+
+  // month calendar
+  const first = new Date(U.calY,U.calM,1); const lead = (first.getDay()+6)%7; const dim = new Date(U.calY,U.calM+1,0).getDate();
+  let cal = ["L","M","X","J","V","S","D"].map(l=>`<span class="h">${l}</span>`).join("") + `<span class="c blank"></span>`.repeat(lead);
+  for (let d=1; d<=dim; d++){ const k = `${U.calY}-${pad(U.calM+1)}-${pad(d)}`; const m = st.byDay.get(k)?.min||0; cal += `<span class="c ${m>0?"on":""} ${k===t?"today":""}">${d}${m>0?`<small>${Math.round(m)}m</small>`:""}</span>`; }
+
+  // last 7 days
+  const last7 = []; for (let i=6;i>=0;i--){ const d = addDays(now,-i); last7.push({l:DIA[d.getDay()], m: st.byDay.get(iso(d))?.min||0}); }
+  const max7 = Math.max(st.goal*2, ...last7.map(x=>x.m));
+
+  // evolution
+  const evo = [];
+  if (U.evoRange==="weeks"){ const m0 = mondayOf(now); for (let i=7;i>=0;i--){ const s = addDays(m0,-7*i); let v=0; for(let j=0;j<7;j++){ const r = st.byDay.get(iso(addDays(s,j))); if(r) v += U.evoMetric==="min"?r.min:r.pages; } evo.push({l:`${s.getDate()} ${MES[s.getMonth()]}`, v}); } }
+  else { for (let i=11;i>=0;i--){ const d = new Date(now.getFullYear(), now.getMonth()-i, 1); const pre = `${d.getFullYear()}-${pad(d.getMonth()+1)}`; let v=0; for (const [k,r] of st.byDay) if (k.startsWith(pre)) v += U.evoMetric==="min"?r.min:r.pages; evo.push({l:MES[d.getMonth()], v}); } }
+  const evoRangeTxt = U.evoRange==="weeks" ? (()=>{ const s = addDays(mondayOf(now),-49); return `${s.getDate()} ${MES[s.getMonth()]} ${s.getFullYear()} – ${now.getDate()} ${MES[now.getMonth()]}`; })() : `${MES[(now.getMonth()+1)%12]} ${now.getFullYear()-1} – ${MES[now.getMonth()]} ${now.getFullYear()}`;
+
+  // finished per month
+  const perMonth = Array(12).fill(0); const withDate = S.books.filter(b=>b.status==="done" && (b.finishedAt||"").startsWith(String(U.monthsYear)));
+  withDate.forEach(b => perMonth[Number(b.finishedAt.slice(5,7))-1]++);
+  const undated = S.books.filter(b=>b.status==="done" && !b.finishedAt).length;
+  const fy = new Set(S.books.map(b=>(b.finishedAt||"").slice(0,4)).filter(Boolean)); fy.add(String(year));
+  const hy = new Set(S.sessions.map(s=>s.date.slice(0,4))); hy.add(String(year));
+
+  // time per book
+  const per = new Map(); for (const s of S.sessions){ const r = per.get(s.bookId)||{m:0,n:0}; r.m += Number(s.minutes)||0; r.n++; per.set(s.bookId,r); }
+  const perList = [...per.entries()].sort((a,b)=>b[1].m-a[1].m); const perMax = perList[0]?.[1].m||1;
+  const comp = st.tot ? Math.round(st.ok/st.tot*100) : 0;
+
+  return `<section class="hero"><p class="eyebrow">Tu camino lector</p><h1>Leer. <em>Crecer.</em></h1><p>Mira tu constancia, sin perder de vista el disfrute.</p></section>
+  <section class="tiles">
+    <div class="tile"><div class="lbl">Tiempo registrado</div><div class="val">${Math.floor(st.totalMin/60)}<small>h ${Math.round(st.totalMin%60)} min</small></div></div>
+    <div class="tile"><div class="lbl">Páginas registradas</div><div class="val">${st.totalPages}<small>páginas</small></div></div>
+    <div class="tile"><div class="lbl">Días con lectura</div><div class="val">${st.days.length}<small>días</small></div></div>
+    <div class="tile"><div class="lbl">Valoración media</div><div class="val">${st.avg==null?"–":st.avg.toFixed(1)}<small>/10</small></div></div>
+  </section>
+  <section class="two">
+    <div class="card">
+      <div class="card-h"><p class="eyebrow">Calendario de lectura</p><div class="row"><button class="btn sm ghost" data-cal="-1" aria-label="Mes anterior">${icon("left")}</button><span style="font-size:13px;text-transform:capitalize">${MESL[U.calM]} de ${U.calY}</span><button class="btn sm ghost" data-cal="1" aria-label="Mes siguiente">${icon("right")}</button></div></div>
+      <div class="cal">${cal}</div>
+      <p class="legend" style="margin-top:12px"><span><i style="background:var(--glow)"></i>Día con lectura registrada</span></p>
+    </div>
+    <div class="stack">
+      <div class="card">
+        <div class="card-h"><p class="eyebrow">Los últimos 7 días</p>${icon("clock")}</div>
+        <div class="bars7">${last7.map(x=>`<div><b>${Math.round(x.m)}</b><span class="track"><span class="fill" style="height:${x.m/max7*100}%"></span></span><span>${x.l}</span></div>`).join("")}</div>
+        <p class="hint" style="margin-top:10px">Minutos de lectura registrados por día.</p>
+        <hr class="sep" style="margin:18px 0">
+        <p class="eyebrow">Objetivo ${year}</p>
+        <div class="big" style="margin-top:8px">${doneYear}<small>/ ${yGoal} libros</small></div>
+        <div class="bar"><i style="width:${Math.min(100,doneYear/yGoal*100)}%"></i></div>
+        <p class="hint">Los libros sin fecha de finalización cuentan en tu biblioteca, pero no en el objetivo anual.</p>
+        ${S.canWrite?`<button class="btn ghost sm" data-action="goals" style="margin-top:8px">Ajustar objetivos ${icon("goal")}</button>`:""}
+      </div>
+      <div class="kv">
+        <div><p class="eyebrow">${icon("flame")} Racha actual</p><div class="big">${st.cur}<small>días</small></div></div>
+        <div><p class="eyebrow">Mejor racha</p><div class="big">${st.best}<small>días</small></div></div>
+        <div><p class="eyebrow">Promedio por día leído</p><div class="big">${Math.round(st.avgPerDay)}<small>min</small></div></div>
+        <div><p class="eyebrow">Objetivo diario cumplido</p><div class="big">${comp}<small>%</small></div></div>
+      </div>
+    </div>
+  </section>
+  <section class="card">
+    <div class="card-h" style="flex-wrap:wrap"><p class="eyebrow">Evolución de tu lectura</p>
+      <div class="row"><div class="seg">${[["weeks","8 semanas"],["months","12 meses"]].map(([k,l])=>`<button data-evo-r="${k}" aria-pressed="${U.evoRange===k}">${l}</button>`).join("")}</div>
+      <div class="seg">${[["min","Minutos"],["pages","Páginas"]].map(([k,l])=>`<button data-evo-m="${k}" aria-pressed="${U.evoMetric===k}">${l}</button>`).join("")}</div></div></div>
+    <p class="hint">${esc(evoRangeTxt)} · ${U.evoMetric==="min"?"min":"páginas"} registrados por ${U.evoRange==="weeks"?"semana":"mes"}</p>
+    ${barChart(evo)}
+    <p class="hint">El último periodo está en curso. Un cero indica que no hay sesiones registradas.</p>
+  </section>
+  <section class="two">
+    <div class="card">
+      <p class="eyebrow">Cumplimiento diario</p>
+      <div class="big" style="margin:8px 0 2px">${comp}%</div>
+      <p class="hint">${st.ok} de ${st.tot} días con al menos ${st.goal} minutos</p>
+      <div class="bar" style="height:10px"><i style="width:${comp}%"></i></div>
+      <div class="legend"><span><i style="background:var(--mint)"></i>Objetivo alcanzado <b>${st.ok}</b></span><span><i style="background:var(--raised);border:1px solid var(--border)"></i>Por debajo o sin registro <b>${st.tot-st.ok}</b></span></div>
+      <p class="hint" style="margin-top:10px">${st.from?`${parse(st.from).getDate()} ${MES[parse(st.from).getMonth()]} – ${parse(st.to).getDate()} ${MES[parse(st.to).getMonth()]}. `:""}Se consideran hasta 30 días cerrados, desde tu primera sesión. Hoy queda fuera. Se aplica tu objetivo actual a todo el periodo.</p>
+    </div>
+    <div class="card">
+      <div class="card-h"><p class="eyebrow">Libros terminados por mes</p><label class="row"><span class="hint">Año</span><select class="inp" id="months-year" style="width:auto">${[...fy].sort().map(y=>`<option ${Number(y)===U.monthsYear?"selected":""}>${y}</option>`).join("")}</select></label></div>
+      <p class="hint">${withDate.length} libros con fecha en ${U.monthsYear}</p>
+      ${barChart(perMonth.map((v,i)=>({l:MES[i],v, fut: U.monthsYear===year && i>now.getMonth()})), true)}
+      <p class="hint">${undated?`${undated} libros terminados no tienen fecha y quedan fuera de esta gráfica. `:""}Los meses futuros no cuentan.</p>
+    </div>
+  </section>
+  <section class="card">
+    <div class="card-h"><p class="eyebrow">Mapa de actividad · ${U.heatYear}</p><label class="row"><span class="hint">Año</span><select class="inp" id="heat-year" style="width:auto">${[...hy].sort().map(y=>`<option ${Number(y)===U.heatYear?"selected":""}>${y}</option>`).join("")}</select></label></div>
+    <p class="hint" style="margin-bottom:12px">${heatSummary(st)}</p>
+    ${heatmap(st)}
+    <p class="hint" id="heat-detail" style="margin-top:10px">${heatDetail(st)}</p>
+    <div class="legend" style="margin-top:8px"><span>Minutos por día</span><span><i style="background:var(--raised)"></i>0</span><span><i style="background:#2a5a44"></i>1–19</span><span><i style="background:#3f9c72"></i>20–39</span><span><i style="background:#6fd6a0"></i>40–59</span><span><i style="background:var(--mint)"></i>60+</span><span><i style="border:1px solid var(--line)"></i>Futuro</span></div>
+  </section>
+  <section class="card">
+    <div class="card-h"><p class="eyebrow">Tiempo dedicado a cada libro</p><span class="hint">Todo tu registro</span></div>
+    ${perList.length ? `<div class="tpb">${perList.map(([id,r])=>`<div class="r"><b>${esc(bookById(id)?.title||"Libro eliminado")}</b><span>${fmtMin(r.m)} · ${r.n} sesiones</span><div class="bar"><i style="width:${r.m/perMax*100}%"></i></div></div>`).join("")}</div>` : `<p class="hint">Registra una sesión para ver aquí el tiempo por libro.</p>`}
+    <p class="hint" style="margin-top:12px">Solo se incluyen libros con sesiones guardadas. Las horas anteriores sin registro no se estiman.</p>
+  </section>
+  <p class="hint">Los minutos, páginas y rachas se calculan con tus sesiones. Tus lecturas anteriores se han añadido sin inventar fechas ni sesiones.</p>` + footer();
+}
+
+/* ---------- Sunday review ---------- */
+const weekLabel = wk => { const s = parse(wk), e = addDays(s,6); return `${s.getDate()} ${MES[s.getMonth()]} – ${e.getDate()} ${MES[e.getMonth()]} ${e.getFullYear()}`; };
+function vReview(){
+  const thisMon = iso(mondayOf(new Date()));
+  const wk = U.revWeek || thisMon;
+  const start = parse(wk);
+  const keys = Array.from({length:7}, (_,i) => iso(addDays(start,i)));
+  const st = stats(); const goal = st.goal; const t = today();
+  const ss = S.sessions.filter(s => keys.includes(s.date)).sort((a,b) => a.date.localeCompare(b.date) || (a.pageFrom||0)-(b.pageFrom||0));
+  const min = ss.reduce((a,s)=>a+(Number(s.minutes)||0),0);
+  const pages = ss.reduce((a,s)=>a+Math.max(0,(Number(s.pageTo)||0)-(Number(s.pageFrom)||0)),0);
+  const daysRead = keys.filter(k => (st.byDay.get(k)?.min||0) > 0).length;
+  const daysGoal = keys.filter(k => (st.byDay.get(k)?.min||0) >= goal).length;
+  const per = new Map(); ss.forEach(s => { const r = per.get(s.bookId)||{m:0,p:0,n:0}; r.m += Number(s.minutes)||0; r.p += Math.max(0,(s.pageTo||0)-(s.pageFrom||0)); r.n++; per.set(s.bookId,r); });
+  const ideas = ss.filter(s => (s.note||"").trim());
+  const started = S.books.filter(b => keys.includes(b.startedAt));
+  const finished = S.books.filter(b => keys.includes(b.finishedAt));
+  const rev = S.reviews.find(r => r.id === wk);
+  const draft = (U.revDraft[wk] || {});
+  const val = k => esc(draft[k] ?? rev?.[k] ?? "");
+  const past = S.reviews.filter(r => r.id !== wk).sort((a,b)=>b.id.localeCompare(a.id));
+  const isCurrent = wk === thisMon;
+  return `<section class="hero"><p class="eyebrow">Cada domingo</p><h1>Mi <em>revisión.</em></h1><p>Qué has leído, qué te llevas y qué vas a aplicar. Cinco minutos para cerrar la semana.</p></section>
+  <div class="row" style="justify-content:space-between">
+    <div class="row"><button class="btn sm ghost" data-rev="-1" aria-label="Semana anterior">${icon("left")}</button><b style="font-variant-numeric:tabular-nums">${weekLabel(wk)}</b><button class="btn sm ghost" data-rev="1" aria-label="Semana siguiente" ${isCurrent?"disabled":""}>${icon("right")}</button></div>
+    <span class="chip">${rev?"Revisión guardada":isCurrent&&keys.includes(t)&&new Date().getDay()!==0?"Semana en curso":"Sin revisar"}</span>
+  </div>
+  <section class="tiles">
+    <div class="tile"><div class="lbl">Tiempo</div><div class="val">${Math.round(min)}<small>min</small></div></div>
+    <div class="tile"><div class="lbl">Páginas</div><div class="val">${pages}<small>págs.</small></div></div>
+    <div class="tile"><div class="lbl">Días con lectura</div><div class="val">${daysRead}<small>/ ${S.settings.weeklyDays}</small></div></div>
+    <div class="tile"><div class="lbl">Días con ${goal}+ min</div><div class="val">${daysGoal}<small>/ 7</small></div></div>
+  </section>
+  <section class="journal">
+    <div class="stack">
+      <div class="card">
+        <p class="eyebrow">Lo que leíste</p>
+        ${per.size ? `<div class="tpb" style="margin-top:12px">${[...per.entries()].sort((a,b)=>b[1].m-a[1].m).map(([id,r])=>`<div class="r"><b>${esc(bookById(id)?.title||"Libro eliminado")}</b><span>${fmtMin(r.m)} · ${r.p} págs. · ${r.n} ${r.n===1?"sesión":"sesiones"}</span></div>`).join("")}</div>` : `<p class="hint" style="margin-top:8px">No hay sesiones registradas esta semana.</p>`}
+        ${started.length||finished.length?`<div class="row" style="margin-top:14px">${finished.map(b=>`<span class="chip" style="color:var(--mint)">Terminado: ${esc(b.title)}</span>`).join("")}${started.map(b=>`<span class="chip">Empezado: ${esc(b.title)}</span>`).join("")}</div>`:""}
+      </div>
+      <div class="card">
+        <p class="eyebrow">Ideas que apuntaste</p>
+        ${ideas.length ? ideas.map(s=>`<div class="take"><b>${esc(bookById(s.bookId)?.title||"")} · ${parse(s.date).getDate()} ${MES[parse(s.date).getMonth()]}</b><p>${esc(s.note)}</p></div>`).join("") : `<p class="hint" style="margin-top:8px">No apuntaste ideas en tus sesiones esta semana. Escribe aquí al lado lo que recuerdes.</p>`}
+      </div>
+    </div>
+    <form class="card stack" id="review-form" data-week="${wk}" novalidate>
+      <p class="eyebrow">Tu revisión</p>
+      <div class="field"><label for="r-take">Lo que me llevo de esta semana</label><textarea class="inp" id="r-take" placeholder="Una o dos ideas que quieras recordar.">${val("takeaway")}</textarea></div>
+      <div class="field"><label for="r-apply">Qué voy a aplicar</label><textarea class="inp" id="r-apply" placeholder="Algo concreto que harás distinto esta semana.">${val("apply")}</textarea></div>
+      <div class="field"><label for="r-plan">Plan para la próxima semana</label><textarea class="inp" id="r-plan" placeholder="Qué vas a leer y cuándo.">${val("plan")}</textarea></div>
+      <p class="err" id="r-err" hidden></p>
+      <div class="row" style="justify-content:space-between"><span class="hint">${rev?.updatedAt?`Guardada el ${esc(longDate(rev.updatedAt.slice(0,10)))}`:""}</span>${S.canWrite?`<button class="btn primary" type="submit">Guardar revisión</button>`:""}</div>
+    </form>
+  </section>
+  <section class="card">
+    <p class="eyebrow">Revisiones anteriores</p>
+    ${past.length ? past.map(r=>`<button class="take" data-rev-go="${esc(r.id)}" style="all:unset;display:block;cursor:pointer;padding:12px 0;border-bottom:1px solid var(--line);width:100%"><b>${weekLabel(r.id)}</b><p class="hint" style="margin:3px 0 0">${esc(r.apply || r.takeaway || "Sin texto")}</p></button>`).join("") : `<p class="hint" style="margin-top:8px">Cuando guardes tu primera revisión, aparecerá aquí para que puedas volver a ella.</p>`}
+  </section>` + footer();
+}
+function reviewBanner(){
+  const d = new Date(); const thisMon = iso(mondayOf(d)); const lastMon = iso(addDays(mondayOf(d),-7));
+  const has = id => S.reviews.some(r => r.id === id);
+  if (d.getDay()===0 && !has(thisMon)) return `<section class="card row" style="justify-content:space-between;border-color:rgba(169,244,192,.3)"><div><p class="eyebrow"><span class="dot"></span>Domingo</p><p style="margin:6px 0 0">Hoy toca tu revisión semanal: qué has leído y qué te llevas.</p></div><button class="btn primary sm" data-nav="review">Hacer la revisión ${icon("arrow")}</button></section>`;
+  if (d.getDay()===1 && !has(lastMon) && S.sessions.some(s => s.date >= lastMon && s.date < thisMon)) return `<section class="card row" style="justify-content:space-between"><p style="margin:0">Te quedó pendiente la revisión de la semana pasada.</p><button class="btn sm" data-action="rev-last">Hacerla ahora</button></section>`;
+  return "";
+}
+
+function niceMax(v){ if (v<=0) return 4; const p = Math.pow(10, Math.floor(Math.log10(v))); for (const m of [1,2,2.5,4,5,10]) if (m*p >= v) return m*p; return 10*p; }
+function barChart(data, integer=false){
+  const W = 640, H = 200, L = 34, B = 24, T = 10, R = 8;
+  const max = integer ? Math.max(2, Math.ceil(Math.max(...data.map(d=>d.v)))) : niceMax(Math.max(...data.map(d=>d.v)));
+  const ticks = integer ? Array.from({length:max+1},(_,i)=>i) : [0,max/4,max/2,max*3/4,max];
+  const iw = W-L-R, ih = H-T-B, bw = iw/data.length;
+  let g = "";
+  for (const t of ticks){ const y = T + ih - t/max*ih; g += `<line x1="${L}" x2="${W-R}" y1="${y}" y2="${y}" stroke="var(--line)" stroke-width="1"/><text x="${L-6}" y="${y+3}" text-anchor="end">${Math.round(t)}</text>`; }
+  data.forEach((d,i) => { const h = d.v/max*ih; const x = L + i*bw + bw*0.18; const w = bw*0.64; const y = T+ih-h;
+    g += `<rect x="${x}" y="${T}" width="${w}" height="${ih}" rx="5" fill="var(--raised)" opacity="${d.fut?0.35:0.7}"/>`;
+    if (d.v>0) g += `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="5" fill="${i===data.length-1&&!integer?"var(--glow)":"var(--mint)"}"><title>${esc(d.l)}: ${Math.round(d.v)}</title></rect>`;
+    g += `<text x="${x+w/2}" y="${H-6}" text-anchor="middle">${esc(d.l)}</text>`; });
+  return `<div style="overflow-x:auto"><svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Gráfico de barras">${g}</svg></div>`;
+}
+function heatSummary(st){ let n=0,m=0; for (const [k,r] of st.byDay) if (k.startsWith(String(U.heatYear)) && r.min>0){ n++; m+=r.min; } return `${n} días con lectura · ${fmtMin(m)} registrados`; }
+function heatmap(st){
+  const y = U.heatYear; const start = mondayOf(new Date(y,0,1)); const end = new Date(y,11,31); const t = today();
+  let cells = "", months = "", col = 0, lastM = -1;
+  for (let w = new Date(start); w <= end; w = addDays(w,7), col++){
+    const m = (w.getFullYear()<y) ? 0 : w.getMonth();
+    months += `<span style="width:11px">${m!==lastM && (w.getFullYear()===y||col===0) ? MES[m] : ""}</span>`; if (m!==lastM) lastM = m;
+    for (let d=0; d<7; d++){ const day = addDays(w,d); const k = iso(day);
+      if (day.getFullYear()!==y){ cells += `<i style="visibility:hidden"></i>`; continue; }
+      const min = st.byDay.get(k)?.min||0; const lv = k>t ? "fut" : min>=60?"l4":min>=40?"l3":min>=20?"l2":min>0?"l1":"";
+      cells += `<i class="${lv} ${U.heatSel===k?"sel":""}" data-day="${k}" title="${esc(longDate(k))}: ${Math.round(min)} min" tabindex="-1"></i>`; }
+  }
+  return `<div class="heat-wrap"><div class="months">${months}</div><div class="heat" id="heat">${cells}</div></div>`;
+}
+function heatDetail(st){ const k = U.heatSel || today(); if (!k.startsWith(String(U.heatYear))) return "Pasa sobre un día o selecciónalo para ver el detalle."; const r = st.byDay.get(k); const d = parse(k); return `${d.getDate()} de ${MESL[d.getMonth()]} de ${d.getFullYear()} · ${r? `${Math.round(r.min)} min · ${r.pages} páginas · ${r.n} ${r.n===1?"sesión":"sesiones"}` : "sin lectura registrada"}`; }
+
+/* ---------- timer ---------- */
+function timerSecs(){ return Math.floor((U.timer.acc + (U.timer.running ? Date.now()-U.timer.start : 0))/1000); }
+function timerText(){ const s = timerSecs(); return `${pad(Math.floor(s/60))}:${pad(s%60)}`; }
+function tick(){ const el = $("#timer-txt"); if (el) el.textContent = timerText(); }
+
+/* ---------- dialogs ---------- */
+const dlg = $("#dlg");
+function openDlg(html){ $("#dlg-body").innerHTML = `<button class="btn ghost dlg-x" data-action="close" aria-label="Cerrar">${icon("x")}</button>` + html; if (!dlg.open) dlg.showModal(); const f = dlg.querySelector("input,select,textarea"); f && f.focus(); }
+function closeDlg(){ if (dlg.open) dlg.close(); }
+dlg.addEventListener("click", e => { if (e.target === dlg) closeDlg(); });
+
+function bookForm(b){
+  const n = !b; b = b || {status:"pending", ownership:"wish", priority:2, category:"", page:0};
+  return `<form class="dlg" id="book-form" novalidate>
+    <div><p class="eyebrow">Tu biblioteca personal</p><h2>${n?"Una nueva lectura":"Editar libro"}</h2>${n?`<p class="hint">Añade un comprado o recomendado. Buscaremos su categoría al guardar.</p>`:""}</div>
+    <div class="form">
+      <div class="field full"><label for="f-title">Título</label><input class="inp" id="f-title" required placeholder="¿Qué vas a leer?" value="${esc(b.title)}"></div>
+      <div class="field full"><label for="f-author">Autor</label><input class="inp" id="f-author" placeholder="Opcional, ayuda a identificar el libro" value="${esc(b.author)}"></div>
+      <div class="field"><label for="f-status">Estado</label><select class="inp" id="f-status">${Object.entries(STATUS).map(([k,l])=>`<option value="${k}" ${b.status===k?"selected":""}>${l}</option>`).join("")}</select></div>
+      <div class="field"><label for="f-own">Lo tengo…</label><select class="inp" id="f-own"><option value="bought" ${b.ownership==="bought"?"selected":""}>Comprado / en mi biblioteca</option><option value="wish" ${b.ownership!=="bought"?"selected":""}>Recomendado / por comprar</option></select></div>
+      <label class="check full"><input type="checkbox" id="f-auto" ${n?"checked":""}> Detectar categoría automáticamente</label>
+      <div class="field"><label for="f-cat">Categoría</label><select class="inp" id="f-cat">${catOptions(b.category||"Por clasificar", false)}</select></div>
+      <div class="field"><label for="f-prio">Prioridad</label><select class="inp" id="f-prio"><option value="1" ${b.priority===1?"selected":""}>Alta · quiero leerlo pronto</option><option value="2" ${b.priority===2||b.priority==null?"selected":""}>Normal</option><option value="3" ${b.priority===3?"selected":""}>Para más adelante</option></select></div>
+      <div class="field"><label for="f-total">Páginas de mi edición</label><input class="inp" id="f-total" type="number" min="1" placeholder="Total (opcional)" value="${b.total??""}"></div>
+      <div class="field"><label for="f-page">Página actual</label><input class="inp" id="f-page" type="number" min="0" value="${b.page??0}"></div>
+      <div class="field"><label for="f-rating">Valoración / 10</label><input class="inp" id="f-rating" type="number" min="0" max="10" step="0.5" placeholder="Sin valorar" value="${b.rating??""}"></div>
+      <div class="field"><label for="f-rec">¿Quién me lo recomendó?</label><input class="inp" id="f-rec" placeholder="Una persona, un podcast, una lista…" value="${esc(b.recommendedBy)}"></div>
+      <div class="field full"><label for="f-origin">Origen</label><input class="inp" id="f-origin" placeholder="De dónde viene: una lista, un regalo, una librería…" value="${esc(b.origin)}"></div>
+      <div class="field"><label for="f-start">Fecha de inicio</label><input class="inp" id="f-start" type="date" value="${b.startedAt||""}"></div>
+      <div class="field"><label for="f-end">Fecha de finalización</label><input class="inp" id="f-end" type="date" value="${b.finishedAt||""}"></div>
+      ${S.assets?`<div class="field full"><label for="f-cover">Portada (imagen)</label><input class="inp" id="f-cover" type="file" accept="image/*"></div>`:""}
+      <div class="field full"><label for="f-notes">Lo que me llevo / por qué quiero leerlo</label><textarea class="inp" id="f-notes" placeholder="Un aprendizaje o el motivo por el que te interesa. Aparece en «Lo que me llevo» del Diario.">${esc(b.notes)}</textarea></div>
+    </div>
+    <p class="err" id="f-err" hidden></p>
+    <div class="row" style="justify-content:flex-end"><button type="button" class="btn" data-action="close">Cancelar</button><button class="btn primary" type="submit" ${b.id?`data-id="${esc(b.id)}"`:""}>Guardar libro</button></div>
+  </form>`;
+}
+
+function logForm(bookId, minutes){
+  const opts = S.books.filter(b=>b.status!=="done").sort((a,b)=>({reading:0,paused:1,pending:2}[a.status]-({reading:0,paused:1,pending:2}[b.status])) || sortTitle(a,b));
+  const sel = bookId || currentBook()?.id || opts[0]?.id;
+  const b = bookById(sel);
+  return `<form class="dlg" id="log-form" novalidate>
+    <div><p class="eyebrow">Diario de lectura</p><h2>Registrar lectura</h2></div>
+    <div class="form">
+      <div class="field full"><label for="l-book">Libro</label><select class="inp" id="l-book">${opts.map(o=>`<option value="${esc(o.id)}" ${o.id===sel?"selected":""}>${esc(o.title)} · ${STATUS[o.status]}</option>`).join("")}</select></div>
+      <div class="field"><label for="l-date">Fecha</label><input class="inp" id="l-date" type="date" value="${today()}" max="${today()}"></div>
+      <div class="field"><label for="l-min">Minutos</label><input class="inp" id="l-min" type="number" min="1" value="${minutes||""}" placeholder="20"></div>
+      <div class="field"><label for="l-from">Desde la página</label><input class="inp" id="l-from" type="number" min="0" value="${b?.page||0}"></div>
+      <div class="field"><label for="l-to">Hasta la página</label><input class="inp" id="l-to" type="number" min="0" placeholder="${b?.total?`de ${b.total}`:""}"></div>
+      <div class="field full"><label for="l-note">Una idea de esta sesión</label><textarea class="inp" id="l-note" placeholder="Opcional"></textarea></div>
+    </div>
+    <p class="err" id="l-err" hidden></p>
+    <div class="row" style="justify-content:flex-end"><button type="button" class="btn" data-action="close">Cancelar</button><button class="btn primary" type="submit">Guardar sesión</button></div>
+  </form>`;
+}
+
+function goalsForm(){ const s = S.settings; return `<form class="dlg" id="goals-form" novalidate>
+  <div><p class="eyebrow">A tu ritmo</p><h2>Mis objetivos</h2><p class="hint">Una guía flexible para encontrar tu constancia.</p></div>
+  <div class="form">
+    <div class="field"><label for="g-min">Minutos al día</label><input class="inp" id="g-min" type="number" min="1" value="${s.dailyMinutes}"></div>
+    <div class="field"><label for="g-days">Días de lectura a la semana</label><input class="inp" id="g-days" type="number" min="1" max="7" value="${s.weeklyDays}"></div>
+    <div class="field"><label for="g-books">Libros al año</label><input class="inp" id="g-books" type="number" min="1" value="${s.yearlyBooks}"></div>
+  </div>
+  <p class="err" id="g-err" hidden></p>
+  <div class="row" style="justify-content:flex-end"><button type="button" class="btn" data-action="close">Cancelar</button><button class="btn primary" type="submit">Guardar objetivos</button></div></form>`; }
+
+function detailHTML(b, confirmDel=false){
+  const ss = S.sessions.filter(s=>s.bookId===b.id).sort((a,c)=>c.date.localeCompare(a.date));
+  const mins = ss.reduce((a,s)=>a+(Number(s.minutes)||0),0);
+  return `<div class="dlg">
+    <div class="detail"><div>${coverHTML(b)}</div><div>
+      <p class="eyebrow">${esc(STATUS[b.status])}${b.rating!=null&&b.rating!==""?` · <span class="rating">${ratingTxt(b.rating)}</span>`:""}</p>
+      <h2>${esc(b.title)}</h2><p class="hint">${esc(b.author||"Autor por añadir")}</p>
+      <dl class="facts">
+        <dt>Categoría</dt><dd>${esc(b.category||"Por clasificar")}</dd>
+        <dt>Lo tengo</dt><dd>${b.ownership==="bought"?"Comprado":"Recomendado / por comprar"}</dd>
+        ${b.total||b.page?`<dt>Progreso</dt><dd>Pág. ${b.page||0}${b.total?` de ${b.total}`:""}</dd>`:""}
+        ${b.startedAt?`<dt>Empezado</dt><dd>${esc(longDate(b.startedAt))}</dd>`:""}
+        ${b.finishedAt?`<dt>Terminado</dt><dd>${esc(longDate(b.finishedAt))}</dd>`:""}
+        ${b.recommendedBy?`<dt>Recomendado por</dt><dd>${esc(b.recommendedBy)}</dd>`:""}
+        ${b.origin?`<dt>Origen</dt><dd>${esc(b.origin)}</dd>`:""}
+        ${b.status==="pending"&&b.next?`<dt>Cola</dt><dd>En tus siguientes</dd>`:""}
+        ${ss.length?`<dt>Registrado</dt><dd>${fmtMin(mins)} · ${ss.length} sesiones</dd>`:""}
+      </dl>
+      ${b.status==="reading"&&b.total?`<p class="hint" style="margin-top:10px">${finishText(b)}</p>`:""}</div></div>
+    <div><p class="eyebrow">Mis notas</p><p style="margin:6px 0 0;white-space:pre-wrap">${b.notes?esc(b.notes):`<span class="hint">Sin notas todavía.</span>`}</p></div>
+    ${ss.filter(s=>s.note).length?`<div><p class="eyebrow">Ideas de tus sesiones</p>${ss.filter(s=>s.note).map(s=>`<p class="hint" style="margin:6px 0 0"><b style="color:var(--text)">${esc(longDate(s.date))}:</b> ${esc(s.note)}</p>`).join("")}</div>`:""}
+    ${S.canWrite?`<div class="row" style="justify-content:space-between">
+      ${confirmDel?`<span class="row"><span class="hint">¿Eliminar este libro?</span><button class="btn sm danger" data-action="del-book-yes" data-id="${esc(b.id)}">Sí, eliminar</button><button class="btn sm" data-action="detail" data-id="${esc(b.id)}">No</button></span>`:`<button class="btn sm danger" data-action="del-book" data-id="${esc(b.id)}">Eliminar</button>`}
+      <span class="row">${b.status==="pending"?`<button class="btn sm" data-action="queue" data-id="${esc(b.id)}" ${!b.next&&queued().length>=QUEUE_MAX?"disabled":""}>${b.next?"Pasar a Algún día":"Añadir a Siguientes"}</button>`:""}${b.status!=="done"?`<button class="btn sm" data-action="log" data-id="${esc(b.id)}">Registrar lectura</button>`:""}<button class="btn sm primary" data-action="edit" data-id="${esc(b.id)}">Editar</button></span></div>`:""}
+  </div>`;
+}
+
+/* ---------- writes ---------- */
+function toast(msg){ const t = $("#toast"); t.textContent = msg; t.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(()=>t.hidden=true, 2600); }
+function dbErr(e){ const c = e && e.code; if (c==="auth") return "Tu sesión ha caducado. Vuelve a entrar."; if (c==="quota_exceeded") return "La biblioteca está llena: elimina algún libro o sesión antes de añadir más."; if (c==="invalid_argument") return "No tienes permiso para cambiar esta biblioteca."; return "No se ha podido guardar. Revisa tu conexión y vuelve a intentarlo."; }
+async function saveBook(id, data){ if (!S.db) throw {code:"unavailable"}; await S.db.collection("books").doc(id).set(data); }
+const slug = s => (s||"libro").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,60) || "libro";
+const strip = b => { const o = {...b}; delete o.id; return o; };
+
+async function onBookSubmit(form){
+  const g = id => form.querySelector(id);
+  const err = g("#f-err"); err.hidden = true;
+  const title = g("#f-title").value.trim();
+  if (!title){ err.textContent = "Escribe el título del libro."; err.hidden = false; g("#f-title").focus(); return; }
+  const id = form.querySelector('[type=submit]').dataset.id;
+  const old = id ? bookById(id) : null;
+  const num = v => v==="" ? null : Number(v);
+  const author = g("#f-author").value.trim();
+  let category = g("#f-cat").value, categorySource = "manual";
+  if (g("#f-auto").checked){ const hay = title+" "+author; const hit = KEYWORDS.find(([,re])=>re.test(hay)); category = hit ? hit[0] : (old?.category || "Por clasificar"); categorySource = hit ? "auto" : (old?.categorySource||"manual"); }
+  const status = g("#f-status").value;
+  const data = {...(old?strip(old):{order: Date.now()}), title, author, status, ownership:g("#f-own").value, category, categorySource,
+    priority:Number(g("#f-prio").value), total:num(g("#f-total").value), page:Number(g("#f-page").value)||0, rating:num(g("#f-rating").value),
+    startedAt:g("#f-start").value||null, finishedAt:g("#f-end").value||null, recommendedBy:g("#f-rec").value.trim(), origin:g("#f-origin").value.trim(), notes:g("#f-notes").value.trim()};
+  if (status!=="pending") data.next = false;
+  if (status==="reading" && !data.startedAt) data.startedAt = today();
+  if (status==="done" && !data.finishedAt && old?.status!=="done") data.finishedAt = today();
+  const btn = form.querySelector('[type=submit]'); btn.disabled = true;
+  try {
+    const file = g("#f-cover")?.files?.[0];
+    if (file && S.assets){ const a = await S.assets.upload(file, id || slug(title)); data.cover = a.url; }
+    const newId = id || (slug(title) + "-" + Date.now().toString(36));
+    await saveBook(newId, data);
+    closeDlg(); toast(id ? "Libro guardado" : `${category}: «${title}» añadido`);
+  } catch(e){ err.textContent = e && e.code ? dbErr(e) : "No se ha podido subir la portada. Prueba con otra imagen."; err.hidden = false; btn.disabled = false; }
+}
+
+async function onLogSubmit(form){
+  const g = id => form.querySelector(id); const err = g("#l-err"); err.hidden = true;
+  const bookId = g("#l-book").value, date = g("#l-date").value, minutes = Number(g("#l-min").value);
+  const from = Number(g("#l-from").value)||0, toRaw = g("#l-to").value, to = toRaw===""?from:Number(toRaw);
+  const say = m => { err.textContent = m; err.hidden = false; };
+  if (!bookId) return say("Elige un libro.");
+  if (!date) return say("Indica la fecha de la sesión.");
+  if (!(minutes>0)) return say("Indica cuántos minutos has leído.");
+  if (to < from) return say("La página final no puede ser menor que la inicial.");
+  const b = bookById(bookId); if (b?.total && to > b.total) return say(`Tu edición tiene ${b.total} páginas.`);
+  const btn = form.querySelector('[type=submit]'); btn.disabled = true;
+  try {
+    await S.db.collection("sessions").doc().set({bookId, date, minutes, pageFrom:from, pageTo:to, note:g("#l-note").value.trim()});
+    if (b){ const up = {...strip(b), page: Math.max(Number(b.page)||0, to)};
+      if (b.status!=="reading" && b.status!=="done"){ up.status = "reading"; up.next = false; up.startedAt = b.startedAt || date; }
+      let finished = false; if (b.total && up.page >= b.total){ up.status = "done"; up.finishedAt = b.finishedAt || date; finished = true; }
+      await saveBook(b.id, up); closeDlg(); if (U.timer.acc||U.timer.running) resetTimer();
+      toast(finished ? `¡Terminado! Valora «${b.title}» desde su ficha.` : "Sesión guardada"); }
+    else { closeDlg(); toast("Sesión guardada"); }
+  } catch(e){ say(dbErr(e)); btn.disabled = false; }
+}
+
+async function onGoalsSubmit(form){
+  const g = id => Number(form.querySelector(id).value); const err = form.querySelector("#g-err");
+  const s = {dailyMinutes:g("#g-min"), weeklyDays:g("#g-days"), yearlyBooks:g("#g-books")};
+  if (!(s.dailyMinutes>0 && s.weeklyDays>=1 && s.weeklyDays<=7 && s.yearlyBooks>0)){ err.textContent = "Usa números positivos; los días van de 1 a 7."; err.hidden = false; return; }
+  try { await S.db.doc("settings/main").set(s); closeDlg(); toast("Objetivos guardados"); } catch(e){ err.textContent = dbErr(e); err.hidden = false; }
+}
+
+function resetTimer(){ clearInterval(U.timer.iv); U.timer = {running:false,start:0,acc:0,iv:null}; render(); }
+
+/* ---------- events ---------- */
+function go(v){ if (!VIEWS[v]) v = "home"; U.view = v; if (location.hash !== "#"+v) history.replaceState(null,"","#"+v); render(); window.scrollTo({top:0}); }
+document.addEventListener("click", async e => {
+  const nav = e.target.closest("[data-nav]"); if (nav){ e.preventDefault(); closeDlg(); go(nav.dataset.nav); return; }
+  const t = e.target.closest("[data-lib],[data-pend],[data-evo-r],[data-evo-m],[data-cal],[data-day],[data-rev],[data-rev-go]");
+  if (t){
+    if (t.dataset.rev){ if (t.disabled) return; const thisMon = iso(mondayOf(new Date())); const cur = U.revWeek || thisMon; const n = iso(addDays(parse(cur), 7*Number(t.dataset.rev))); U.revWeek = n > thisMon ? thisMon : n; render(); return; }
+    if (t.dataset.revGo){ U.revWeek = t.dataset.revGo; render(); window.scrollTo({top:0}); return; }
+    if (t.dataset.lib){ U.lib = t.dataset.lib; render(); }
+    else if (t.dataset.pend){ U.pend = t.dataset.pend; render(); }
+    else if (t.dataset.evoR){ U.evoRange = t.dataset.evoR; render(); }
+    else if (t.dataset.evoM){ U.evoMetric = t.dataset.evoM; render(); }
+    else if (t.dataset.cal){ const d = new Date(U.calY, U.calM + Number(t.dataset.cal), 1); U.calY = d.getFullYear(); U.calM = d.getMonth(); render(); }
+    else if (t.dataset.day){ U.heatSel = t.dataset.day; document.querySelectorAll("#heat i.sel").forEach(i=>i.classList.remove("sel")); t.classList.add("sel"); $("#heat-detail").textContent = heatDetail(stats()); }
+    return;
+  }
+  const a = e.target.closest("[data-action]"); if (!a) return;
+  const id = a.dataset.id, b = id ? bookById(id) : null;
+  switch (a.dataset.action){
+    case "close": closeDlg(); break;
+    case "add-book": openDlg(bookForm()); break;
+    case "edit": if (b) openDlg(bookForm(b)); break;
+    case "detail": if (b) openDlg(detailHTML(b)); break;
+    case "del-book": if (b) openDlg(detailHTML(b,true)); break;
+    case "del-book-yes": if (b){ try { await S.db.collection("books").doc(b.id).delete(); closeDlg(); toast(`«${b.title}» eliminado`); } catch(err){ toast(dbErr(err)); } } break;
+    case "log": openDlg(logForm(id)); break;
+    case "goals": openDlg(goalsForm()); break;
+    case "start": if (b){ try { await saveBook(b.id, {...strip(b), status:"reading", next:false, startedAt: b.startedAt || today()}); toast(`Empiezas «${b.title}»`); } catch(err){ toast(dbErr(err)); } } break;
+    case "queue": if (b){
+      if (!b.next && queued().length >= QUEUE_MAX){ toast(`Ya tienes ${QUEUE_MAX} en Siguientes. Pasa uno a «Algún día» primero.`); break; }
+      try { await saveBook(b.id, {...strip(b), next: !b.next}); toast(b.next ? `«${b.title}» vuelve a Algún día` : `«${b.title}» añadido a Siguientes`); } catch(err){ toast(dbErr(err)); } } break;
+    case "del-session":
+      if (a.dataset.confirm){ try { await S.db.collection("sessions").doc(id).delete(); toast("Sesión eliminada"); } catch(err){ toast(dbErr(err)); } }
+      else { a.dataset.confirm = "1"; a.innerHTML = "¿Eliminar?"; a.classList.add("danger"); setTimeout(()=>{ if (a.isConnected){ delete a.dataset.confirm; a.innerHTML = icon("x"); a.classList.remove("danger"); } }, 3000); }
+      break;
+    case "timer-toggle":
+      if (U.timer.running){ U.timer.acc += Date.now()-U.timer.start; U.timer.running = false; clearInterval(U.timer.iv); }
+      else { U.timer.start = Date.now(); U.timer.running = true; U.timer.iv = setInterval(tick, 1000); }
+      render(); break;
+    case "timer-log": { if (U.timer.running){ U.timer.acc += Date.now()-U.timer.start; U.timer.running = false; clearInterval(U.timer.iv); } openDlg(logForm(null, Math.max(1, Math.round(U.timer.acc/60000)))); break; }
+    case "timer-reset": resetTimer(); break;
+    case "rev-last": U.revWeek = iso(addDays(mondayOf(new Date()),-7)); go("review"); break;
+  }
+});
+document.addEventListener("submit", e => { e.preventDefault(); const f = e.target;
+  if (f.id==="book-form") onBookSubmit(f); else if (f.id==="log-form") onLogSubmit(f); else if (f.id==="goals-form") onGoalsSubmit(f); else if (f.id==="review-form") onReviewSubmit(f); });
+async function onReviewSubmit(form){
+  const wk = form.dataset.week; const g = id => form.querySelector(id).value.trim(); const err = form.querySelector("#r-err"); err.hidden = true;
+  const data = {takeaway:g("#r-take"), apply:g("#r-apply"), plan:g("#r-plan"), updatedAt:new Date().toISOString()};
+  if (!data.takeaway && !data.apply && !data.plan){ err.textContent = "Escribe al menos una de las tres respuestas."; err.hidden = false; return; }
+  const btn = form.querySelector('[type=submit]'); btn.disabled = true;
+  try { await S.db.doc("reviews/"+wk).set(data); delete U.revDraft[wk]; toast("Revisión guardada"); }
+  catch(e){ err.textContent = dbErr(e); err.hidden = false; btn.disabled = false; }
+}
+document.addEventListener("change", e => {
+  const t = e.target;
+  if (t.id==="lib-cat"){ U.libCat = t.value; render(); }
+  else if (t.id==="pend-cat"){ U.pendCat = t.value; render(); }
+  else if (t.id==="heat-year"){ U.heatYear = Number(t.value); U.heatSel = null; render(); }
+  else if (t.id==="months-year"){ U.monthsYear = Number(t.value); render(); }
+  else if (t.id==="l-book"){ const b = bookById(t.value); const f = $("#l-from"); if (b && f) f.value = b.page||0; const to = $("#l-to"); if (to) to.placeholder = b?.total?`de ${b.total}`:""; }
+  else if (t.id==="f-cat"){ const a = $("#f-auto"); if (a) a.checked = false; }
+});
+const REV_FIELDS = {"r-take":"takeaway","r-apply":"apply","r-plan":"plan"};
+let qTimer; document.addEventListener("input", e => {
+  if (REV_FIELDS[e.target.id]){ const wk = e.target.form?.dataset.week; if (wk){ (U.revDraft[wk] ||= {})[REV_FIELDS[e.target.id]] = e.target.value; } return; }
+  if (e.target.id==="lib-q"){ U.q = e.target.value; clearTimeout(qTimer); qTimer = setTimeout(()=>{ const pos = e.target.selectionStart; render(); const i = $("#lib-q"); if (i){ i.focus(); try { i.setSelectionRange(pos,pos); } catch(_){} } }, 180); } });
+window.addEventListener("hashchange", () => { const v = location.hash.slice(1); if (VIEWS[v] && v!==U.view) go(v); });
+function afterRender(){}
+
+/* ---------- boot ---------- */
+function setSync(on, txt){ const s = $("#sync"); s.classList.toggle("off", !on); s.querySelector("span").textContent = txt; }
+/* ---------- Supabase store (same shape the views already use) ---------- */
+const TABLES = ["books","sessions","reviews","settings"];
+function sbErr(error){ const m = (error && (error.code || error.message || "")) + ""; if (/JWT|401|PGRST301|not authenticated/i.test(m)) return {code:"auth"}; if (/42501|row-level security/i.test(m)) return {code:"invalid_argument"}; return {code:"unavailable", message: error && error.message}; }
+async function loadTable(t){
+  const {data, error} = await S.sb.from(t).select("id,data").limit(2000);
+  if (error) throw sbErr(error);
+  const rows = (data||[]).map(r => ({...(r.data||{}), id:r.id}));
+  if (t==="books"){ S.books = rows; S.loaded.books = true; }
+  else if (t==="sessions"){ S.sessions = rows; S.loaded.sessions = true; }
+  else if (t==="reviews"){ S.reviews = rows; }
+  else if (t==="settings"){ const m = rows.find(r => r.id==="main"); if (m){ const {id, ...rest} = m; S.settings = {...S.settings, ...rest}; } }
+}
+async function loadAll(){
+  try { await Promise.all(TABLES.map(loadTable)); setSync(true, "Sincronizado"); }
+  catch(e){ setSync(false, "Sin conexión"); if (e.code==="auth"){ await S.sb.auth.signOut(); } }
+  render();
+}
+const uuid = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2));
+async function put(t, id, data){
+  const clean = {...data}; delete clean.id;
+  const {error} = await S.sb.from(t).upsert({user_id:S.uid, id, data:clean, updated_at:new Date().toISOString()});
+  if (error) throw sbErr(error);
+  await loadTable(t); render();
+}
+async function del(t, id){
+  const {error} = await S.sb.from(t).delete().eq("id", id).eq("user_id", S.uid);
+  if (error) throw sbErr(error);
+  await loadTable(t); render();
+}
+const ref = (t, id) => ({ set: d => put(t, id || uuid(), d), delete: () => del(t, id) });
+const DB = { collection: t => ({ doc: id => ref(t, id) }), doc: path => { const [t, id] = path.split("/"); return ref(t, id); } };
+async function resizeImage(file, max=360){
+  const bmp = await createImageBitmap(file); const w = Math.min(max, bmp.width), h = Math.round(bmp.height * w / bmp.width);
+  const c = document.createElement("canvas"); c.width = w; c.height = h; c.getContext("2d").drawImage(bmp, 0, 0, w, h);
+  return await new Promise(r => c.toBlob(r, "image/jpeg", 0.85));
+}
+const ASSETS = { async upload(file, name){
+  const blob = await resizeImage(file); const path = `${S.uid}/${slug(name)}-${Date.now().toString(36)}.jpg`;
+  const {error} = await S.sb.storage.from("covers").upload(path, blob, {contentType:"image/jpeg", upsert:true});
+  if (error) throw {code:"upload"};
+  return {url: S.sb.storage.from("covers").getPublicUrl(path).data.publicUrl};
+} };
+
+async function onSession(session){
+  S.authed = !!session; S.uid = session?.user?.id || null;
+  $("#logout-side").hidden = !S.authed; $("#me-email").textContent = session?.user?.email || "Mi biblioteca personal";
+  if (!S.authed){ S.books = []; S.sessions = []; S.reviews = []; S.loaded = {books:false, sessions:false}; setSync(false, "Sin sesión"); render(); return; }
+  S.db = DB; S.assets = ASSETS; S.canWrite = true;
+  render();
+  try { const {data} = await S.sb.rpc("claim_import"); if (data) toast("Tu biblioteca se ha importado"); } catch(_){}
+  await loadAll();
+}
+async function onAuthSubmit(form){
+  const email = form.querySelector("#a-email").value.trim(), pass = form.querySelector("#a-pass").value;
+  const err = form.querySelector("#a-err"), ok = form.querySelector("#a-ok"); err.hidden = ok.hidden = true; U.authEmail = email;
+  const say = (el, m) => { el.textContent = m; el.hidden = false; };
+  if (!email || !pass) return say(err, "Escribe tu email y tu contraseña.");
+  const btn = form.querySelector("[type=submit]"); btn.disabled = true;
+  try {
+    if (U.authMode === "signup"){
+      if (pass.length < 8){ btn.disabled = false; return say(err, "La contraseña necesita al menos 8 caracteres."); }
+      const {data, error} = await S.sb.auth.signUp({email, password:pass, options:{emailRedirectTo: location.origin + location.pathname}});
+      if (error) throw error;
+      if (!data.session){ say(ok, "Revisa tu email y pulsa el enlace de confirmación. Después vuelve aquí y entra."); U.authMode = "login"; }
+    } else {
+      const {error} = await S.sb.auth.signInWithPassword({email, password:pass});
+      if (error) throw error;
+    }
+  } catch(e){
+    const m = (e && e.message || "") + "";
+    say(err, /Invalid login/i.test(m) ? "Email o contraseña incorrectos." : /not confirmed/i.test(m) ? "Confirma tu email antes de entrar: revisa tu bandeja de entrada." : /Signups not allowed|signup.*disabled/i.test(m) ? "El registro está cerrado. Entra con tu cuenta." : /already registered/i.test(m) ? "Ya existe una cuenta con ese email. Usa «Entrar»." : "No se ha podido entrar. Revisa tu conexión e inténtalo de nuevo.");
+  }
+  btn.disabled = false;
+}
+document.addEventListener("click", async e => {
+  const t = e.target.closest("[data-auth]"); if (t){ U.authMode = t.dataset.auth; const em = $("#a-email"); if (em) U.authEmail = em.value; render(); return; }
+  const a = e.target.closest('[data-action="logout"],[data-action="reset-pass"]'); if (!a) return;
+  if (a.dataset.action === "logout"){ await S.sb.auth.signOut(); toast("Sesión cerrada"); }
+  else { const email = ($("#a-email")?.value || "").trim(); const err = $("#a-err"), ok = $("#a-ok");
+    if (!email){ err.textContent = "Escribe tu email y vuelve a pulsar."; err.hidden = false; return; }
+    const {error} = await S.sb.auth.resetPasswordForEmail(email, {redirectTo: location.origin + location.pathname});
+    if (error){ err.textContent = "No se ha podido enviar el email. Inténtalo más tarde."; err.hidden = false; } else { ok.textContent = "Te hemos enviado un enlace para cambiar la contraseña."; ok.hidden = false; } }
+});
+document.addEventListener("submit", async e => {
+  if (e.target.id === "auth-form"){ e.preventDefault(); onAuthSubmit(e.target); }
+  if (e.target.id === "newpass-form"){ e.preventDefault(); const f = e.target, p = f.querySelector("#np-pass").value, err = f.querySelector("#np-err");
+    if (p.length < 8){ err.textContent = "La contraseña necesita al menos 8 caracteres."; err.hidden = false; return; }
+    const {error} = await S.sb.auth.updateUser({password:p});
+    if (error){ err.textContent = "No se ha podido cambiar. Pide otro enlace e inténtalo de nuevo."; err.hidden = false; return; }
+    U.recovery = false; history.replaceState(null, "", location.pathname + "#home"); toast("Contraseña cambiada"); const {data} = await S.sb.auth.getSession(); onSession(data.session); }
+});
+function recoveryHTML(){ return `<section class="login"><div class="hero"><p class="eyebrow">Reading Arc</p><h1>Nueva <em>contraseña.</em></h1></div>
+  <form class="card" id="newpass-form" novalidate><div class="field"><label for="np-pass">Nueva contraseña</label><input class="inp" id="np-pass" type="password" autocomplete="new-password" minlength="8" required></div>
+  <p class="err" id="np-err" hidden></p><button class="btn primary" type="submit">Guardar contraseña</button></form></section>`; }
+let lastSync = 0;
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && S.authed && Date.now() - lastSync > 15000){ lastSync = Date.now(); loadAll(); } });
+
+async function boot(){
+  const h = location.hash.slice(1); if (VIEWS[h]) U.view = h;
+  render();
+  if (!window.supabase || !CFG.url || !CFG.key){ S.ready = true; S.available = false; S.availErr = "Falta la configuración de Supabase."; setSync(false, "Sin conexión"); render(); return; }
+  S.sb = window.supabase.createClient(CFG.url, CFG.key, {auth:{persistSession:true, autoRefreshToken:true, detectSessionInUrl:true}});
+  S.sb.auth.onAuthStateChange((ev, session) => {
+    if (ev === "PASSWORD_RECOVERY"){ U.recovery = true; S.ready = true; render(); return; }
+    if (ev === "SIGNED_IN" || ev === "SIGNED_OUT" || ev === "INITIAL_SESSION"){ S.ready = true; if ((ev==="SIGNED_IN" && S.uid === session?.user?.id)) return; onSession(session); }
+  });
+}
+boot();
+})();
+</script>
+</body>
+</html>
