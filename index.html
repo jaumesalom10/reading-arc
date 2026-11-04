@@ -411,7 +411,7 @@ const QUEUE_MAX = 3;
 const queued = () => S.books.filter(b => b.status==="pending" && b.next);
 const byOrder = (a,b) => (a.order??1e15)-(b.order??1e15) || sortTitle(a,b);
 const CFG = window.RA_CONFIG || {};
-const safeCover = u => typeof u === "string" && (/^covers\/[a-z0-9-]+\.jpg$/.test(u) || (CFG.url && u.startsWith(CFG.url + "/storage/v1/object/public/covers/")) || u.startsWith("data:image/")) ? u : "";
+const safeCover = u => typeof u === "string" && (/^covers\/[a-z0-9-]+\.jpg$/.test(u) || /^https:\/\/covers\.openlibrary\.org\/b\/(id|isbn|olid)\/[A-Za-z0-9-]+\.jpg(\?[a-z=]+)?$/.test(u) || (CFG.url && u.startsWith(CFG.url + "/storage/v1/object/public/covers/")) || u.startsWith("data:image/")) ? u : "";
 
 function coverHTML(b, small=false){
   const src = safeCover(b.cover);
@@ -593,7 +593,7 @@ function bookCard(b, small=false){
   if (st==="reading"){ meta = `<span class="meta hi">Pág. ${b.page||0}${b.total?` / ${b.total}`:""}</span>`; if (S.canWrite) action = `<button class="btn sm" data-action="log" data-id="${esc(b.id)}">Registrar lectura</button>`; }
   else if (st==="done"){ action = `<button class="btn sm ghost" data-action="detail" data-id="${esc(b.id)}">Ver mis notas</button>`; }
   else {
-    const own = b.ownership==="bought" ? "Comprado" : "Recomendado";
+    const own = b.ownership==="bought" ? (b.location ? `En ${b.location}` : "Comprado") : "Recomendado";
     meta = `<span class="meta${b.priority===1||b.next?" hi":""}">${b.next?"Siguiente · ":""}${own}${b.priority===1?" · Prioridad alta":b.priority===3?" · Para más adelante":""}</span>`;
     if (S.canWrite){
       action = `<button class="btn sm" data-action="start" data-id="${esc(b.id)}">${st==="paused"?"Retomar":"Empezar"}</button>`;
@@ -918,6 +918,7 @@ function bookForm(b){
       <div class="field"><label for="f-page">Página actual</label><input class="inp" id="f-page" type="number" min="0" value="${b.page??0}"></div>
       <div class="field"><label for="f-rating">Valoración / 10</label><input class="inp" id="f-rating" type="number" min="0" max="10" step="0.5" placeholder="Sin valorar" value="${b.rating??""}"></div>
       <div class="field"><label for="f-rec">¿Quién me lo recomendó?</label><input class="inp" id="f-rec" placeholder="Una persona, un podcast, una lista…" value="${esc(b.recommendedBy)}"></div>
+      <div class="field full"><label for="f-location">Dónde está</label><input class="inp" id="f-location" placeholder="Biblioteca de Palma, piso de Barcelona, prestado…" value="${esc(b.location)}"></div>
       <div class="field full"><label for="f-origin">Origen</label><input class="inp" id="f-origin" placeholder="De dónde viene: una lista, un regalo, una librería…" value="${esc(b.origin)}"></div>
       <div class="field"><label for="f-start">Fecha de inicio</label><input class="inp" id="f-start" type="date" value="${b.startedAt||""}"></div>
       <div class="field"><label for="f-end">Fecha de finalización</label><input class="inp" id="f-end" type="date" value="${b.finishedAt||""}"></div>
@@ -968,6 +969,7 @@ function detailHTML(b, confirmDel=false){
       <dl class="facts">
         <dt>Categoría</dt><dd>${esc(b.category||"Por clasificar")}</dd>
         <dt>Lo tengo</dt><dd>${b.ownership==="bought"?"Comprado":"Recomendado / por comprar"}</dd>
+        ${b.location?`<dt>Dónde está</dt><dd>${esc(b.location)}${b.shelf?` · ${esc(b.shelf)}`:""}</dd>`:""}
         ${b.total||b.page?`<dt>Progreso</dt><dd>Pág. ${b.page||0}${b.total?` de ${b.total}`:""}</dd>`:""}
         ${b.startedAt?`<dt>Empezado</dt><dd>${esc(longDate(b.startedAt))}</dd>`:""}
         ${b.finishedAt?`<dt>Terminado</dt><dd>${esc(longDate(b.finishedAt))}</dd>`:""}
@@ -1006,7 +1008,7 @@ async function onBookSubmit(form){
   const status = g("#f-status").value;
   const data = {...(old?strip(old):{order: Date.now()}), title, author, status, ownership:g("#f-own").value, category, categorySource,
     priority:Number(g("#f-prio").value), total:num(g("#f-total").value), page:Number(g("#f-page").value)||0, rating:num(g("#f-rating").value),
-    startedAt:g("#f-start").value||null, finishedAt:g("#f-end").value||null, recommendedBy:g("#f-rec").value.trim(), origin:g("#f-origin").value.trim(), notes:g("#f-notes").value.trim()};
+    startedAt:g("#f-start").value||null, finishedAt:g("#f-end").value||null, recommendedBy:g("#f-rec").value.trim(), origin:g("#f-origin").value.trim(), location:g("#f-location").value.trim(), notes:g("#f-notes").value.trim()};
   if (status!=="pending") data.next = false;
   if (status==="reading" && !data.startedAt) data.startedAt = today();
   if (status==="done" && !data.finishedAt && old?.status!=="done") data.finishedAt = today();
