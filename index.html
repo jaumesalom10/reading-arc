@@ -933,13 +933,19 @@ async function findCover({isbn, title, author}){
   }
   return null;
 }
+const cleanTitle = t => (t || "").split(/\s+:\s+|\s+-\s+\d|\s+\/\s+/)[0].trim();
 async function lookupIsbn(isbn){
   try {
     const j = await fetch("https://openlibrary.org/search.json?limit=1&fields=title,author_name,number_of_pages_median&isbn=" + isbn).then(r => r.json());
-    const d = (j.docs || [])[0]; if (d) return {title: d.title, author: (d.author_name || []).join(", "), pages: d.number_of_pages_median || null};
+    const d = (j.docs || [])[0];
+    if (d){
+      const out = {title: cleanTitle(d.title), author: (d.author_name || []).join(", "), pages: d.number_of_pages_median || null};
+      if (!out.author){ const v = ((await gbooks("isbn:" + isbn))[0] || {}).volumeInfo; if (v && v.authors) out.author = v.authors.join(", "); }
+      return out;
+    }
   } catch(_){}
   const it = (await gbooks("isbn:" + isbn))[0]; const v = it && it.volumeInfo;
-  return v ? {title: v.title, author: (v.authors || []).join(", "), pages: v.pageCount || null} : null;
+  return v ? {title: cleanTitle(v.title), author: (v.authors || []).join(", "), pages: v.pageCount || null} : null;
 }
 let coverReq = 0;
 async function runCoverSearch({fillFields}){
