@@ -251,6 +251,13 @@ dialog::backdrop{background:rgba(0,0,0,.6);backdrop-filter:blur(3px)}
 .login .tabs{margin-bottom:4px}
 .ok{color:var(--mint);font-size:13px;margin:0}
 input[type=checkbox]{accent-color:var(--mint);width:16px;height:16px}
+.cover-find{display:flex;gap:12px;align-items:flex-start}
+.cover-find .prev{width:64px;flex:none}
+.cover-find .prev img{width:64px;border-radius:6px;border:1px solid var(--border);display:block}
+.cover-find .prev .none{width:64px;aspect-ratio:2/3;border-radius:6px;border:1px dashed var(--border);display:grid;place-items:center;font-size:10px;color:var(--faint);text-align:center;padding:4px}
+.cover-find .ctl{flex:1;min-width:0;display:flex;flex-direction:column;gap:8px}
+.isbn-row{display:flex;gap:8px;flex-wrap:wrap}
+.isbn-row .inp{flex:1 1 180px;min-width:0}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));background:var(--raised);border:1px solid var(--border);border-radius:10px;padding:10px 16px;font-size:14px;z-index:30;box-shadow:0 10px 30px rgba(0,0,0,.4)}
 
 /* Phone nav */
@@ -411,7 +418,7 @@ const QUEUE_MAX = 3;
 const queued = () => S.books.filter(b => b.status==="pending" && b.next);
 const byOrder = (a,b) => (a.order??1e15)-(b.order??1e15) || sortTitle(a,b);
 const CFG = window.RA_CONFIG || {};
-const safeCover = u => typeof u === "string" && (/^covers\/[a-z0-9-]+\.jpg$/.test(u) || /^https:\/\/covers\.openlibrary\.org\/b\/(id|isbn|olid)\/[A-Za-z0-9-]+\.jpg(\?[a-z=]+)?$/.test(u) || (CFG.url && u.startsWith(CFG.url + "/storage/v1/object/public/covers/")) || u.startsWith("data:image/")) ? u : "";
+const safeCover = u => typeof u === "string" && (/^covers\/[a-z0-9-]+\.jpg$/.test(u) || /^https:\/\/covers\.openlibrary\.org\/b\/(id|isbn|olid)\/[A-Za-z0-9-]+\.jpg(\?[a-z=]+)?$/.test(u) || /^https:\/\/books\.google\.com\/books\/content\?[A-Za-z0-9_=&.-]+$/.test(u) || (CFG.url && u.startsWith(CFG.url + "/storage/v1/object/public/covers/")) || u.startsWith("data:image/")) ? u : "";
 
 function coverHTML(b, small=false){
   const src = safeCover(b.cover);
@@ -902,6 +909,60 @@ function openDlg(html){ $("#dlg-body").innerHTML = `<button class="btn ghost dlg
 function closeDlg(){ if (dlg.open) dlg.close(); }
 dlg.addEventListener("click", e => { if (e.target === dlg) closeDlg(); });
 
+/* ---------- ISBN lookup + cover finder (Open Library, then Google Books) ---------- */
+const isbnClean = v => (v || "").replace(/[^0-9Xx]/g, "").toUpperCase();
+const isbnValid = s => s.length === 10 || s.length === 13;
+function coverPreview(url){ const u = safeCover(url); return u ? `<img src="${esc(u)}" alt="Portada elegida">` : `<span class="none">Sin portada</span>`; }
+function imgLoads(url){ return new Promise(res => { const i = new Image(); const t = setTimeout(() => res(false), 9000); i.onload = () => { clearTimeout(t); res(i.naturalWidth > 10); }; i.onerror = () => { clearTimeout(t); res(false); }; i.src = url; }); }
+async function gbooks(q){ try { const g = await fetch("https://www.googleapis.com/books/v1/volumes?maxResults=5&q=" + encodeURIComponent(q)).then(r => r.json()); return g.items || []; } catch(_){ return []; } }
+const gThumb = v => { const t = v && v.imageLinks && (v.imageLinks.thumbnail || v.imageLinks.smallThumbnail); return t ? t.replace(/^http:/, "https:").replace(/&edge=curl/, "") : null; };
+async function findCover({isbn, title, author}){
+  if (isbn){
+    const ol = `https://covers.openlibrary.org/b/isbn/${isbn}-L.jpg?default=false`;
+    if (await imgLoads(ol)) return {url: ol, from: "Open Library, por ISBN"};
+    for (const it of await gbooks("isbn:" + isbn)){ const t = gThumb(it.volumeInfo); if (t && safeCover(t)) return {url: t, from: "Google Books, por ISBN"}; }
+  }
+  if (title){
+    try {
+      const j = await fetch("https://openlibrary.org/search.json?limit=8&fields=cover_i,title,author_name,language&title=" + encodeURIComponent(title) + (author ? "&author=" + encodeURIComponent(author.split(/,| y /)[0]) : "")).then(r => r.json());
+      const docs = (j.docs || []).filter(d => d.cover_i);
+      const d = docs.find(x => (x.language || []).includes("spa")) || docs[0];
+      if (d) return {url: `https://covers.openlibrary.org/b/id/${d.cover_i}-L.jpg`, from: "Open Library, por título"};
+    } catch(_){}
+    for (const it of await gbooks(`intitle:${title}` + (author ? ` inauthor:${author.split(/,| y /)[0]}` : ""))){ const t = gThumb(it.volumeInfo); if (t && safeCover(t)) return {url: t, from: "Google Books, por título"}; }
+  }
+  return null;
+}
+async function lookupIsbn(isbn){
+  try {
+    const j = await fetch("https://openlibrary.org/search.json?limit=1&fields=title,author_name,number_of_pages_median&isbn=" + isbn).then(r => r.json());
+    const d = (j.docs || [])[0]; if (d) return {title: d.title, author: (d.author_name || []).join(", "), pages: d.number_of_pages_median || null};
+  } catch(_){}
+  const it = (await gbooks("isbn:" + isbn))[0]; const v = it && it.volumeInfo;
+  return v ? {title: v.title, author: (v.authors || []).join(", "), pages: v.pageCount || null} : null;
+}
+let coverReq = 0;
+async function runCoverSearch({fillFields}){
+  const f = $("#book-form"); if (!f) return;
+  const g = id => f.querySelector(id); const msg = g("#f-cover-msg");
+  const isbn = isbnClean(g("#f-isbn").value);
+  if (isbn && !isbnValid(isbn)){ msg.textContent = "El ISBN tiene 10 o 13 cifras. Revisa el número."; return; }
+  const title = g("#f-title").value.trim(), author = g("#f-author").value.trim();
+  if (!isbn && !title){ msg.textContent = "Escribe el ISBN o el título para buscar la portada."; return; }
+  const req = ++coverReq; msg.textContent = "Buscando…";
+  if (fillFields && isbn){
+    const info = await lookupIsbn(isbn); if (req !== coverReq) return;
+    if (info){
+      if (!g("#f-title").value.trim() && info.title) g("#f-title").value = info.title;
+      if (!g("#f-author").value.trim() && info.author) g("#f-author").value = info.author;
+      if (!g("#f-total").value && info.pages) g("#f-total").value = info.pages;
+    }
+  }
+  const c = await findCover({isbn, title: g("#f-title").value.trim(), author: g("#f-author").value.trim()}); if (req !== coverReq) return;
+  if (c){ g("#f-cover-url").value = c.url; g("#f-cover-prev").innerHTML = coverPreview(c.url); g("#f-cover-clear").hidden = false; delete f.dataset.coverCleared; msg.textContent = `Portada encontrada en ${c.from}. Se guarda al pulsar «Guardar libro».`; }
+  else msg.textContent = "No he encontrado portada. Puedes probar con otro ISBN (otra edición) o subir una foto.";
+}
+
 function bookForm(b){
   const n = !b; b = b || {status:"pending", ownership:"wish", priority:2, category:"", page:0};
   return `<form class="dlg" id="book-form" novalidate>
@@ -909,6 +970,17 @@ function bookForm(b){
     <div class="form">
       <div class="field full"><label for="f-title">Título</label><input class="inp" id="f-title" required placeholder="¿Qué vas a leer?" value="${esc(b.title)}"></div>
       <div class="field full"><label for="f-author">Autor</label><input class="inp" id="f-author" placeholder="Opcional, ayuda a identificar el libro" value="${esc(b.author)}"></div>
+      <div class="field full"><label for="f-isbn">ISBN y portada</label>
+        <div class="cover-find">
+          <div class="prev" id="f-cover-prev">${coverPreview(b.cover)}</div>
+          <div class="ctl">
+            <div class="isbn-row"><input class="inp" id="f-isbn" inputmode="numeric" autocomplete="off" placeholder="978… (lo pone en la contraportada)" value="${esc(b.isbn)}"><button type="button" class="btn sm" data-action="find-cover">Buscar portada</button></div>
+            <p class="hint" id="f-cover-msg">${b.id ? "«Buscar portada» solo cambia la portada; no toca el resto de la ficha." : "Con el ISBN busco la portada al momento y relleno título, autor y páginas si están vacíos."}</p>
+            <div class="row"><button type="button" class="btn sm ghost" data-action="clear-cover" ${b.cover?"":"hidden"} id="f-cover-clear">Quitar portada</button></div>
+          </div>
+        </div>
+        <input type="hidden" id="f-cover-url" value="${esc(safeCover(b.cover))}">
+      </div>
       <div class="field"><label for="f-status">Estado</label><select class="inp" id="f-status">${Object.entries(STATUS).map(([k,l])=>`<option value="${k}" ${b.status===k?"selected":""}>${l}</option>`).join("")}</select></div>
       <div class="field"><label for="f-own">Lo tengo…</label><select class="inp" id="f-own"><option value="bought" ${b.ownership==="bought"?"selected":""}>Comprado / en mi biblioteca</option><option value="wish" ${b.ownership!=="bought"?"selected":""}>Recomendado / por comprar</option></select></div>
       <label class="check full"><input type="checkbox" id="f-auto" ${n?"checked":""}> Detectar categoría automáticamente</label>
@@ -1014,6 +1086,9 @@ async function onBookSubmit(form){
   if (status==="done" && !data.finishedAt && old?.status!=="done") data.finishedAt = today();
   const btn = form.querySelector('[type=submit]'); btn.disabled = true;
   try {
+    data.isbn = isbnClean(g("#f-isbn")?.value || "") || null;
+    const chosen = g("#f-cover-url")?.value ?? "";
+    if (chosen && safeCover(chosen)) data.cover = chosen; else if (form.dataset.coverCleared) data.cover = null;
     const file = g("#f-cover")?.files?.[0];
     if (file && S.assets){ const a = await S.assets.upload(file, id || slug(title)); data.cover = a.url; }
     const newId = id || (slug(title) + "-" + Date.now().toString(36));
@@ -1074,6 +1149,8 @@ document.addEventListener("click", async e => {
   switch (a.dataset.action){
     case "close": closeDlg(); break;
     case "add-book": openDlg(bookForm()); break;
+    case "find-cover": runCoverSearch({fillFields: false}); break;
+    case "clear-cover": { const f = $("#book-form"); if (f){ f.dataset.coverCleared = "1"; $("#f-cover-url").value = ""; $("#f-cover-prev").innerHTML = coverPreview(""); a.hidden = true; $("#f-cover-msg").textContent = "Portada quitada. Se guarda al pulsar «Guardar libro»."; } break; }
     case "edit": if (b) openDlg(bookForm(b)); break;
     case "detail": if (b) openDlg(detailHTML(b)); break;
     case "del-book": if (b) openDlg(detailHTML(b,true)); break;
@@ -1117,6 +1194,7 @@ document.addEventListener("change", e => {
   else if (t.id==="f-cat"){ const a = $("#f-auto"); if (a) a.checked = false; }
 });
 const REV_FIELDS = {"r-take":"takeaway","r-apply":"apply","r-plan":"plan"};
+let isbnTimer; document.addEventListener("input", e => { if (e.target.id === "f-isbn"){ clearTimeout(isbnTimer); const v = isbnClean(e.target.value); if (isbnValid(v)) isbnTimer = setTimeout(() => runCoverSearch({fillFields: true}), 500); } });
 let qTimer; document.addEventListener("input", e => {
   if (REV_FIELDS[e.target.id]){ const wk = e.target.form?.dataset.week; if (wk){ (U.revDraft[wk] ||= {})[REV_FIELDS[e.target.id]] = e.target.value; } return; }
   if (e.target.id==="lib-q"){ U.q = e.target.value; clearTimeout(qTimer); qTimer = setTimeout(()=>{ const pos = e.target.selectionStart; render(); const i = $("#lib-q"); if (i){ i.focus(); try { i.setSelectionRange(pos,pos); } catch(_){} } }, 180); } });
